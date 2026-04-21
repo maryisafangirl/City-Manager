@@ -156,7 +156,7 @@ void list_report_structure(Report r)
     printf("Category:%s\n", r.issue_category);
     printf("Severity level:%d\n", r.severity_level);
     printf("Timestamp: %s", ctime(&r.timestamp));
-    printf("Description:%s", r.description);
+    printf("Description:%s\n", r.description);
 }
 
 void view(char district_id[30], char report_id_char[30])
@@ -199,16 +199,75 @@ void view(char district_id[30], char report_id_char[30])
     close(fd);
 }
 
+void print_permission(mode_t mode)
+{
+    //user
+    if(mode & S_IRUSR)
+        printf("r");
+    else
+        printf("-");
+
+    if(mode & S_IWUSR)
+        printf("w");
+    else
+        printf("-");
+
+    if(mode & S_IXUSR)
+        printf("x");
+    else
+        printf("-");
+
+    //group
+    if(mode & S_IRGRP)
+        printf("r");
+    else
+        printf("-");
+
+    if(mode & S_IWGRP)
+        printf("w");
+    else
+        printf("-");
+
+    if(mode & S_IXGRP)
+        printf("x");
+    else
+        printf("-");
+
+    //other
+    if(mode & S_IROTH)
+        printf("r");
+    else
+        printf("-");
+
+    if(mode & S_IWOTH)
+        printf("w");
+    else
+        printf("-");
+
+    if(mode & S_IXOTH)
+        printf("x");
+    else
+        printf("-");
+
+    printf("\n");
+}
+
 void list(char district_id[30]) //trebuie verificat daca exista districtul inainte sau nu?
 {
-    struct stat st;
+    struct stat st_dir, st_file;
     char file_path[256];
 
     sprintf(file_path, "%s/reports.dat", district_id);
 
-    if(stat(district_id, &st) == -1) 
+    if(stat(district_id, &st_dir) == -1) 
     {
-        printf("District folder not found\n");
+        printf("District folder not found!\n");
+        return;
+    }
+
+    if(stat(file_path, &st_file) == -1) 
+    {
+        printf("Reports file not found!\n");
         return;
     }
 
@@ -219,11 +278,20 @@ void list(char district_id[30]) //trebuie verificat daca exista districtul inain
         perror("Error opening the file!");
         return;
     }
+    
+    printf("Permission: ");
+    print_permission(st_file.st_mode);
+
+    printf("File size:%lld\n", st_file.st_size);
+    printf("Last modification: %s\n", ctime(&st_file.st_mtime));
 
     Report r;
 
     while(read(fd, &r, sizeof(Report)))
+    {
        list_report_structure(r);
+       printf("\n");
+    }
     
     close(fd);
 }
