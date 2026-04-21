@@ -66,7 +66,7 @@ int generate_id(int fd)
     
     if (fstat(fd, &st) == -1) 
     {
-        perror("Eroare la fstat");
+        perror("Error on fstat");
         return 0;
     }
 
@@ -146,16 +146,77 @@ void add(char district_id[30], char *user, char *role)
     }
 }
 
+/*
+void view(char district_id[30], char report_id_char[30], char *user, char *role)
+{
+    int report_id = atoi(report_id_char);
+    int count = 1;
+
+    while(read(fd, &r, sizeof(Report)))
+    {
+        if(count == report_id)
+        {
+            Report r;
+
+
+        }
+
+        count++;
+    }
+}
+ */
+
+void list_report_structure(Report r)
+{
+    printf("Report ID:%d\n", r.report_id);
+    printf("Inspector name:%s\n", r.name);
+    printf("X:%f\n", r.gps_coordonates.longitude);
+    printf("Y:%f\n", r.gps_coordonates.latitude);
+    printf("Category:%s\n", r.issue_category);
+    printf("Severity level:%d\n", r.severity_level);
+    printf("Timestamp: %s", ctime(&r.timestamp));
+    printf("Description:%s", r.description);
+}
+
+void list(char district_id[30]) //trebuie verificat daca exista districtul inainte sau nu?
+{
+    struct stat st;
+    char file_path[256];
+
+    sprintf(file_path, "%s/reports.dat", district_id);
+
+    if(stat(district_id, &st) == -1) 
+    {
+        printf("District folder not found\n");
+        return;
+    }
+
+    int fd = open(file_path, O_RDONLY); 
+
+    if(fd == -1)
+    {
+        perror("Error opening the file!");
+        return;
+    }
+
+    Report r;
+
+    while(read(fd, &r, sizeof(Report)))
+       list_report_structure(r);
+    
+    close(fd);
+}
+
 void which_command(char *command, char **string, char *user, char *role)
 {
     if(strcmp(command, "--add") == 0)
         add(string[7], user, role);
 
     if(strcmp(command, "--list") == 0)
-        return;
+        list(string[7]);
 
     if(strcmp(command, "--view") == 0)
-        return;
+        //view(string[6], string[7], user, role);
 
     if(strcmp(command, "--remove_report") == 0)
         return;
