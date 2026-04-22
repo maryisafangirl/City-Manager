@@ -75,14 +75,54 @@ int generate_id(int fd)
     return nr_rapoarte + 1;
 }
 
-void add(char district_id[30], char *user, char *role)
+int is_manager(char *role)
+{
+    if(strcmp(role, "manager") == 0)
+        return 1;
+
+    return 0;
+}
+
+int is_inspector(char *role)
+{
+    if(strcmp(role, "inspector") == 0)
+        return 1;
+
+    return 0;
+}
+
+void write_in_log(char *log_path, char *user, char *role, char *command, time_t timestamp)
+{
+    if(is_manager(role) == 0)
+    {
+        perror("Only the manager has the permission to write in the log!");
+        return;
+    }
+
+    int log_fd = open(log_path, O_WRONLY | O_APPEND | O_CREAT, 0644);
+
+    if(log_fd != -1)
+    {
+        char log_buffer[512];
+        int len = sprintf(log_buffer, "%s %s %s %s\n", ctime(&timestamp), user, role, command); //AICI trb alta comanda in loc de ctime ca pune si \n
+
+        if(write(log_fd, log_buffer, len) == -1)
+            perror("Error when writing in log file!");
+
+        close(log_fd);
+    }
+}
+
+void add(char *district_id, char *user, char *role)
 {
     struct stat st;
     char file_path[256];
     char log_path[256];
+    char severity_log_path[256];
 
     sprintf(file_path, "%s/reports.dat", district_id);
     sprintf(log_path, "%s/logged_district", district_id);
+    sprintf(severity_log_path, "%s/district.cfg", district_id);
 
     if(stat(district_id, &st) == 0) 
     {
@@ -97,9 +137,19 @@ void add(char district_id[30], char *user, char *role)
 
     if(fd == -1)
     {
-        perror("Error opening the file!");
+        perror("Error opening the report file!");
         return;
     }
+
+    int fs = open(severity_log_path, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP);
+
+    if(fs == -1)
+    {
+        perror("Error opening the district severity level file!");
+        return;
+    }
+
+    close(fs);
 
     Report report;
     memset(&report, 0, sizeof(Report));
@@ -129,23 +179,10 @@ void add(char district_id[30], char *user, char *role)
     if (write(fd, &report, sizeof(Report)) == -1) 
         perror("Error when writing in report file!");
 
-
     close(fd);
 
-    int log_fd = open(log_path, O_WRONLY | O_APPEND | O_CREAT, 0644);
-
-    if(log_fd != -1)
-    {
-        char log_buffer[512];
-        int len = sprintf(log_buffer, "%ld %s %s add\n", report.timestamp, user, role);
-
-        if(write(log_fd, log_buffer, len) == -1)
-            perror("Error when writing in log file!");
-
-        close(log_fd);
-    }
+    write_in_log(log_path, user, role, "add", time(NULL));
 }
-
 
 void list_report_structure(Report r)
 {
@@ -159,15 +196,17 @@ void list_report_structure(Report r)
     printf("Description:%s\n", r.description);
 }
 
-void view(char district_id[30], char report_id_char[30])
+void view(char *district_id, char *report_id_char, char *user, char *role)
 {
     int report_id = atoi(report_id_char);
     int count = 1;
 
     struct stat st;
     char file_path[256];
+    char log_path[256];
 
     sprintf(file_path, "%s/reports.dat", district_id);
+    sprintf(log_path, "%s/logged_district", district_id);
 
     if(stat(district_id, &st) == -1) 
     {
@@ -182,6 +221,8 @@ void view(char district_id[30], char report_id_char[30])
         perror("Error opening the file!");
         return;
     }
+
+    write_in_log(log_path, user, role, "view", time(NULL));
 
     Report r;
 
@@ -252,12 +293,14 @@ void print_permission(mode_t mode)
     printf("\n");
 }
 
-void list(char district_id[30]) //trebuie verificat daca exista districtul inainte sau nu?
+void list(char district_id[30], char *user, char *role) //trebuie verificat daca exista districtul inainte sau nu?
 {
     struct stat st_dir, st_file;
     char file_path[256];
+    char log_path[256];
 
     sprintf(file_path, "%s/reports.dat", district_id);
+    sprintf(log_path, "%s/logged_district", district_id);
 
     if(stat(district_id, &st_dir) == -1) 
     {
@@ -279,10 +322,12 @@ void list(char district_id[30]) //trebuie verificat daca exista districtul inain
         return;
     }
     
+    write_in_log(log_path, user, role, "list", time(NULL));
+
     printf("Permission: ");
     print_permission(st_file.st_mode);
 
-    printf("File size:%lld\n", st_file.st_size);
+    printf("File size:%ld\n", st_file.st_size);
     printf("Last modification: %s\n", ctime(&st_file.st_mtime));
 
     Report r;
@@ -296,22 +341,76 @@ void list(char district_id[30]) //trebuie verificat daca exista districtul inain
     close(fd);
 }
 
+void update_threshold(char *district_id, char *value, char *user, char *role)
+{
+    struct stat st_dir, st_file;
+    char file_path[256];
+    char log_path[256];
+
+    sprintf(file_path, "%s/district.cfg", district_id);
+    sprintf(log_path, "%s/logged_district", district_id);
+
+    if(stat(district_id, &st_dir) == -1)
+    {
+        printf("District folder not found!\n");
+        return;
+    }
+
+    if(stat(file_path, &st_file) == -1)
+    {
+        printf("District file not found!\n");
+        return;
+    }
+
+    if(is_manager(role) == 0)
+    {
+        perror("You do not have permission to write in this file!");
+        return;
+    }
+
+    if(!(st_file.st_mode & S_IWUSR & S_IRUSR))
+    {
+        perror("The system has not given permission for the manager to write in this file!");
+        printf("Current permissions for this file:");
+        print_permission(st_file.st_mode);
+        return;
+    }
+
+    int fd = open(file_path, O_RDONLY | O_WRONLY);
+
+    if(fd == -1)
+    {
+        perror("Error opening the file!");
+        return;
+    }
+
+    write_in_log(log_path, user, role, "update_threshold", time(NULL));
+
+    char write_buff[512];
+    int len = sprintf("%s", value);
+
+    if(write(fd, write_buff, len) == -1)
+        perror("Error when writing in district severity level file!");
+
+    close(fd);
+}
+
 void which_command(char *command, char **string, char *user, char *role)
 {
     if(strcmp(command, "--add") == 0)
         add(string[7], user, role);
 
     if(strcmp(command, "--list") == 0)
-        list(string[7]);
+        list(string[7], user, role);
 
     if(strcmp(command, "--view") == 0)
-        view(string[7], string[8]);
+        view(string[7], string[8], user, role);
 
     if(strcmp(command, "--remove_report") == 0)
         return;
 
     if(strcmp(command, "--update_threshold") == 0)
-        return;
+        update_threshold(string[7], string[8], user, role);
 
     if(strcmp(command, "--filter") == 0)
         return;
