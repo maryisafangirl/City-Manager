@@ -521,6 +521,146 @@ void remove_report(char *district_id, char *report_id_char, char *user, char *ro
     close(fd);
 }
 
+int parse_condition(const char *input, char *field, char *op, char *value) 
+{
+    // Folosim sscanf pentru a extrage datele dintr-un format fix.
+    // %[^:] inseamna "citeste absolut toate caracterele pana cand intalnesti caracterul ':'"
+    // Ultimul %s citeste restul string-ului.
+    
+    if (sscanf(input, "%[^:]:%[^:]:%s", field, op, value) == 3) 
+        return 1; // Succes: am extras exact 3 elemente
+    
+    return 0; // Eroare: string-ul nu a respectat formatul "a:b:c"
+}
+
+int match_condition(Report *r, const char *field, const char *op, const char *value) 
+{
+    // 1. Verificam pentru SEVERITY (are nevoie de conversie in INT)
+    if (strcmp(field, "severity") == 0) 
+    {
+        int val = atoi(value); // Transformam string-ul in numar intreg
+        
+        if (strcmp(op, "==") == 0) 
+            return r->severity_level == val;
+
+        if (strcmp(op, "!=") == 0) 
+            return r->severity_level != val;
+
+        if (strcmp(op, "<")  == 0) 
+            return r->severity_level < val;
+
+        if (strcmp(op, "<=") == 0) 
+            return r->severity_level <= val;
+
+        if (strcmp(op, ">")  == 0) 
+            return r->severity_level > val;
+
+        if (strcmp(op, ">=") == 0) 
+            return r->severity_level >= val;
+    }
+    
+    // 2. Verificam pentru TIMESTAMP (are nevoie de conversie in LONG)
+    else if (strcmp(field, "timestamp") == 0) 
+    {
+        long val = atol(value); // Transformam string-ul in long
+        
+        if (strcmp(op, "==") == 0) 
+            return r->timestamp == val;
+
+        if (strcmp(op, "!=") == 0) 
+            return r->timestamp != val;
+
+        if (strcmp(op, "<")  == 0) 
+            return r->timestamp < val;
+
+        if (strcmp(op, "<=") == 0) 
+            return r->timestamp <= val;
+
+        if (strcmp(op, ">")  == 0) 
+            return r->timestamp > val;
+
+        if (strcmp(op, ">=") == 0) 
+            return r->timestamp >= val;
+    }
+    
+    // 3. Verificam pentru CATEGORY (comparare de string-uri)
+    else if (strcmp(field, "category") == 0)
+    {
+        if (strcmp(op, "==") == 0) 
+            return strcmp(r->issue_category, value) == 0;
+
+        if (strcmp(op, "!=") == 0) 
+            return strcmp(r->issue_category, value) != 0;
+    }
+    
+    // 4. Verificam pentru INSPECTOR (comparare de string-uri folosind 'name')
+    else if (strcmp(field, "inspector") == 0)
+    {
+        if (strcmp(op, "==") == 0) 
+            return strcmp(r->name, value) == 0;
+
+        if (strcmp(op, "!=") == 0) 
+            return strcmp(r->name, value) != 0;
+    }
+
+    // Daca ajungem aici, inseamna ca field-ul sau operatorul sunt invalide
+    return 0; 
+}
+
+void filter(char *district_id, char *condition, char *user, char *role)
+{
+    char field[256], op[256], value[256];
+
+    if(parse_condition(condition, field, op, value) == 0)
+    {
+        printf("The filter condition does not respect the format. Aborting command.\n");
+        return;
+    }
+
+    struct stat st;
+    char file_path[256], log_path[256];
+
+    sprintf(file_path, "%s/reports.dat", district_id);
+    sprintf(log_path, "%s/logged_district", district_id);
+
+    if(stat(district_id, &st) == -1) 
+    {
+        printf("District folder not found.\n");
+        return;
+    }
+
+    int fd = open(file_path, O_RDWR); 
+
+    if(fd == -1)
+    {
+        perror("Error opening the file!");
+        return;
+    }
+
+    if (fstat(fd, &st) == -1) 
+    {
+        close(fd);
+        return;
+    }
+    
+    if (fstat(fd, &st) == -1) 
+    {
+        perror("Error on fstat");
+        return;
+    }
+
+    Report r;
+
+
+    while(read(fd, &r, sizeof(Report))) 
+    {
+        if(match_condition(&r, field, op, value) == 1)
+            list_report_structure(r);
+    }
+
+    close(fd);
+}
+
 void which_command(char *command, char **string, char *user, char *role)
 {
     if(strcmp(command, "--add") == 0)
@@ -539,7 +679,19 @@ void which_command(char *command, char **string, char *user, char *role)
         update_threshold(string[6], string[7], user, role); 
 
     if(strcmp(command, "--filter") == 0)
-        return;
+    {
+        char conditions[256];
+
+        int i = 7;
+
+        while(string[i] != NULL)
+        {
+            strcat(conditions, string[i]);
+            i++;
+        }
+
+        filter(string[6], conditions, user, role);
+    }
 }
 
 int main(int argc, char **argv)
