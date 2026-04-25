@@ -25,21 +25,17 @@ typedef struct
 }Report;
 
 int argument_validation(char **string, char *user_flag, char *role_flag, char *command_flag) //validarea argumentelor in linia de comanda ca structura
-{
-    //tre sa fie si asta cu city-manager sau e doar numele prog?
-    if(strcmp(string[1], "city_manager") != 0)
-        return 0;
-
+{ 
     char role_title[100], role[100];
-    strcpy(role_title, string[2]);
-    strcpy(role, string[3]);
+    strcpy(role_title, string[1]); 
+    strcpy(role, string[2]);     
 
     char user_title[100], user[100];
-    strcpy(user_title, string[4]);
-    strcpy(user, string[5]);
+    strcpy(user_title, string[3]); 
+    strcpy(user, string[4]);       
 
     char command[100];
-    strcpy(command, string[6]);
+    strcpy(command, string[5]);   
 
     if(strcmp(role_title, "--role") != 0)
         return 0;
@@ -67,12 +63,23 @@ int generate_id(int fd)
     if (fstat(fd, &st) == -1) 
     {
         perror("Error on fstat");
-        return 0;
+        return -1; 
     }
 
-    int nr_rapoarte = st.st_size / sizeof(Report);
+    if(st.st_size == 0)
+        return 1;
 
-    return nr_rapoarte + 1;
+    Report r;
+   
+    lseek(fd, -sizeof(Report), SEEK_END);
+ 
+    if (read(fd, &r, sizeof(Report)) == -1) 
+    {
+        perror("Error reading last report");
+        return -1;
+    }
+
+    return r.report_id + 1;
 }
 
 int is_manager(char *role)
@@ -104,7 +111,7 @@ void write_in_log(char *log_path, char *user, char *role, char *command, time_t 
     if(log_fd != -1)
     {
         char log_buffer[512];
-        int len = sprintf(log_buffer, "%s %s %s %s\n", ctime(&timestamp), user, role, command); //AICI trb alta comanda in loc de ctime ca pune si \n
+        int len = sprintf(log_buffer, "%s %s %s %s", user, role, command, ctime(&timestamp)); 
 
         if(write(log_fd, log_buffer, len) == -1)
             perror("Error when writing in log file!");
@@ -132,12 +139,17 @@ void add(char *district_id, char *user, char *role)
     else
         mkdir(district_id, 0750);
 
-    int fd = open(file_path, O_APPEND | O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH); //0664
-    //chmod(file_path, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH); //0664
+    int fd = open(file_path, O_APPEND | O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
 
     if(fd == -1)
     {
         perror("Error opening the report file!");
+        return;
+    }
+
+    if (fstat(fd, &st) == -1) 
+    {
+        perror("Error on fstat");
         return;
     }
 
@@ -174,7 +186,16 @@ void add(char *district_id, char *user, char *role)
 
     report.timestamp = time(NULL);
 
-    report.report_id = generate_id(fd);
+    int id = generate_id(fd);
+
+    if(id == -1)
+    {
+        printf("Error generating id. Aborting add command.\n");
+        close(fd);
+        return;
+    }
+
+    report.report_id = id;
 
     if (write(fd, &report, sizeof(Report)) == -1) 
         perror("Error when writing in report file!");
@@ -199,7 +220,6 @@ void list_report_structure(Report r)
 void view(char *district_id, char *report_id_char, char *user, char *role)
 {
     int report_id = atoi(report_id_char);
-    int count = 1;
 
     struct stat st;
     char file_path[256];
@@ -222,19 +242,23 @@ void view(char *district_id, char *report_id_char, char *user, char *role)
         return;
     }
 
+    if (fstat(fd, &st) == -1) 
+    {
+        perror("Error on fstat");
+        return;
+    }
+
     write_in_log(log_path, user, role, "view", time(NULL));
 
     Report r;
 
     while(read(fd, &r, sizeof(Report)))
     {
-        if(count == report_id)
+        if(r.report_id == report_id)
         {
             list_report_structure(r);
             return;
         }
-
-        count++;
     }
     
     close(fd);
@@ -321,13 +345,19 @@ void list(char district_id[30], char *user, char *role) //trebuie verificat daca
         perror("Error opening the file!");
         return;
     }
+
+    if (fstat(fd, &st_file) == -1) 
+    {
+        perror("Error on fstat");
+        return;
+    }
     
     write_in_log(log_path, user, role, "list", time(NULL));
 
     printf("Permission: ");
     print_permission(st_file.st_mode);
 
-    printf("File size:%ld\n", st_file.st_size);
+    printf("File size:%lld\n", st_file.st_size);
     printf("Last modification: %s\n", ctime(&st_file.st_mtime));
 
     Report r;
@@ -368,11 +398,12 @@ void update_threshold(char *district_id, char *value, char *user, char *role)
         return;
     }
 
-    if(!(st_file.st_mode & S_IWUSR & S_IRUSR))
+    if(!(st_file.st_mode & S_IWUSR))
     {
-        perror("The system has not given permission for the manager to write in this file!");
+        printf("The system has not given permission for the manager to write in this file!\n");
         printf("Current permissions for this file:");
         print_permission(st_file.st_mode);
+
         return;
     }
 
@@ -384,10 +415,16 @@ void update_threshold(char *district_id, char *value, char *user, char *role)
         return;
     }
 
+    if (fstat(fd, &st_file) == -1) 
+    {
+        perror("Error on fstat");
+        return;
+    }
+
     write_in_log(log_path, user, role, "update_threshold", time(NULL));
 
     char write_buff[512];
-    int len = sprintf("%s", value);
+    int len = sprintf(write_buff, "%s", value);
 
     if(write(fd, write_buff, len) == -1)
         perror("Error when writing in district severity level file!");
@@ -395,22 +432,111 @@ void update_threshold(char *district_id, char *value, char *user, char *role)
     close(fd);
 }
 
+void remove_report(char *district_id, char *report_id_char, char *user, char *role)
+{
+    if(is_manager(role) == 0)
+    {
+        printf("Only managers can call the remove report command!");
+        return;
+    }
+
+    int report_id = atoi(report_id_char);
+
+    struct stat st;
+    char file_path[256], log_path[256];
+
+    sprintf(file_path, "%s/reports.dat", district_id);
+    sprintf(log_path, "%s/logged_district", district_id);
+
+    if(stat(district_id, &st) == -1) 
+    {
+        printf("District folder not found.\n");
+        return;
+    }
+
+    int fd = open(file_path, O_RDWR); 
+
+    if(fd == -1)
+    {
+        perror("Error opening the file!");
+        return;
+    }
+
+    if (fstat(fd, &st) == -1) 
+    {
+        close(fd);
+        return;
+    }
+    
+    if (fstat(fd, &st) == -1) 
+    {
+        perror("Error on fstat");
+        return;
+    }
+
+    Report r;
+    int pos = 0, found = 0;
+
+    while(read(fd, &r, sizeof(Report))) 
+    {
+        if(r.report_id == report_id)
+        {
+            found = 1;
+
+            printf("Removing report:\n");
+            list_report_structure(r);
+
+            break;
+        }
+
+        pos += sizeof(Report);
+    }
+        
+    if(found == 1)
+    {
+        Report next_r;
+
+        while(read(fd, &next_r, sizeof(Report)))
+        {
+            lseek(fd, pos, SEEK_SET);
+            write(fd, &next_r, sizeof(Report));
+            
+            pos += sizeof(Report);
+            lseek(fd, pos + sizeof(Report), SEEK_SET);
+        }
+
+        if(ftruncate(fd, st.st_size - sizeof(Report)) == -1)
+        {
+            perror("Error with ftruncate!\n");
+            close(fd);
+            return;
+        }
+
+        printf("The report has been removed.\n");
+        write_in_log(log_path, user, role, "view", time(NULL));
+    }
+    else
+        printf("The report could not be found.\n");
+    
+    close(fd);
+}
+
 void which_command(char *command, char **string, char *user, char *role)
 {
     if(strcmp(command, "--add") == 0)
-        add(string[7], user, role);
+        add(string[6], user, role); 
 
     if(strcmp(command, "--list") == 0)
-        list(string[7], user, role);
+        list(string[6], user, role);
 
     if(strcmp(command, "--view") == 0)
-        view(string[7], string[8], user, role);
+        view(string[6], string[7], user, role);
 
     if(strcmp(command, "--remove_report") == 0)
-        return;
+        remove_report(string[6], string[7], user, role);
 
     if(strcmp(command, "--update_threshold") == 0)
-        update_threshold(string[7], string[8], user, role);
+        update_threshold(string[6], string[7], user, role); 
 
     if(strcmp(command, "--filter") == 0)
         return;
@@ -418,7 +544,7 @@ void which_command(char *command, char **string, char *user, char *role)
 
 int main(int argc, char **argv)
 {
-    if(argc < 7)
+    if(argc < 6) 
     {
         printf("Eroare la numarul de argumente\n");
         exit(-1);
@@ -426,7 +552,7 @@ int main(int argc, char **argv)
 
     char role[100];
     char user[100];
-    char command[100];
+    char command[256];
 
     if(argument_validation(argv, user, role, command) == 0)
     {

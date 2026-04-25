@@ -1,7 +1,9 @@
 -de facut ceva cu legatura intre fisiere
--de facut ca city manager sa nu fie argument in linia de comanda
 -verificare sl
--de facut district.cfg
 -verificari extra la permisiuni de fisiere
--ctime pentru scriere in log, pune si un \n care nu ar trebui sa fie acolo
--permisiunea trebuie sa fie pe manager pentru a pune un log
+-ar trebui sa dau trigger la ceva cu severity level?
+-id-ul, o data ce e pierdut ar trebuie sa fie adus inapoi?
+-ar trebui sa dau close la fd in generate_id?
+-eroare cand dai un id random in view
+-locuri unde n-am close(fd)
+-write in log doar daca e successful?
