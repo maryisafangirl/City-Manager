@@ -1,33 +1,33 @@
 Tool used: Gemini (Google)
 
-Pe baza structurii tale Report și a specificațiilor proiectului (câmpurile severity, category, inspector, timestamp și operatorii ==, !=, <, <=, >, >=), am generat cele două funcții.
+Based on the Report structure and the project specifications (fields: severity, category, inspector, timestamp, and operators: ==, !=, <, <=, >, >=), here are the two generated functions.
 
-Iată codul și explicațiile necesare pentru a le putea prezenta cu brio profesorilor.
+Below is the code and the necessary explanations to present them successfully.
 
-1. Funcția parse_condition
-Această funcție ia un string de tipul "severity:>=:2" și îl sparge în trei bucăți. Cea mai eficientă metodă în C pentru acest format fix este folosirea funcției sscanf.
+1. The parse_condition Function
+This function takes a string such as "severity:>=:2" and splits it into three parts. The most efficient method in C for this fixed format is using the sscanf function.
 
 int parse_condition(const char *input, char *field, char *op, char *value) {
-    // Folosim sscanf pentru a extrage datele dintr-un format fix.
-    // %[^:] inseamna "citeste absolut toate caracterele pana cand intalnesti caracterul ':'"
-    // Ultimul %s citeste restul string-ului.
+    // We use sscanf to extract data from a fixed format.
+    // %[^:] means "read absolutely all characters until you encounter the ':' character".
+    // The last %s reads the remainder of the string.
     
     if (sscanf(input, "%[^:]:%[^:]:%s", field, op, value) == 3) {
-        return 1; // Succes: am extras exact 3 elemente
+        return 1; // Success: extracted exactly 3 elements
     }
     
-    return 0; // Eroare: string-ul nu a respectat formatul "a:b:c"
+    return 0; // Error: the string did not match the "a:b:c" format
 }
-Cum o folosești: Înainte să o apelezi, trebuie să declari trei buffere goale în care funcția să pună rezultatele: char field[50], op[5], value[100];.
+How to use it: Before calling this function, you must declare three empty buffers where the function will store the parsed results: char field[50], op[5], value[100];.
 
-2. Funcția match_condition
-Aici este nucleul filtrării. Această funcție primește o structură Report și cele trei string-uri extrase anterior. Ea trebuie să transforme valoarea din string (ex: "2") într-un număr (int) și să facă logica matematică.
+2. The match_condition Function
+This is the core of the filtering logic. This function receives a Report structure and the three previously extracted strings. It is responsible for converting the value from the string (e.g., "2") into a numerical type (int or long) and applying the mathematical logic.
 
 int match_condition(Report *r, const char *field, const char *op, const char *value) {
     
-    // 1. Verificam pentru SEVERITY (are nevoie de conversie in INT)
+    // 1. Check for SEVERITY (requires conversion to INT)
     if (strcmp(field, "severity") == 0) {
-        int val = atoi(value); // Transformam string-ul in numar intreg
+        int val = atoi(value); // Convert the string to an integer
         
         if (strcmp(op, "==") == 0) return r->severity_level == val;
         if (strcmp(op, "!=") == 0) return r->severity_level != val;
@@ -37,9 +37,9 @@ int match_condition(Report *r, const char *field, const char *op, const char *va
         if (strcmp(op, ">=") == 0) return r->severity_level >= val;
     }
     
-    // 2. Verificam pentru TIMESTAMP (are nevoie de conversie in LONG)
+    // 2. Check for TIMESTAMP (requires conversion to LONG)
     else if (strcmp(field, "timestamp") == 0) {
-        long val = atol(value); // Transformam string-ul in long
+        long val = atol(value); // Convert the string to a long
         
         if (strcmp(op, "==") == 0) return r->timestamp == val;
         if (strcmp(op, "!=") == 0) return r->timestamp != val;
@@ -49,19 +49,21 @@ int match_condition(Report *r, const char *field, const char *op, const char *va
         if (strcmp(op, ">=") == 0) return r->timestamp >= val;
     }
     
-    // 3. Verificam pentru CATEGORY (comparare de string-uri)
+    // 3. Check for CATEGORY (string comparison)
     else if (strcmp(field, "category") == 0) {
         if (strcmp(op, "==") == 0) return strcmp(r->issue_category, value) == 0;
         if (strcmp(op, "!=") == 0) return strcmp(r->issue_category, value) != 0;
     }
     
-    // 4. Verificam pentru INSPECTOR (comparare de string-uri folosind 'name')
+    // 4. Check for INSPECTOR (string comparison using the 'name' field)
     else if (strcmp(field, "inspector") == 0) {
         if (strcmp(op, "==") == 0) return strcmp(r->name, value) == 0;
         if (strcmp(op, "!=") == 0) return strcmp(r->name, value) != 0;
     }
 
-    // Daca ajungem aici, inseamna ca field-ul sau operatorul sunt invalide
+    // If we reach this point, it means the field or operator is invalid
     return 0; 
 }
 
+    The solution that Gemini produced was correct and didn't need alteration (surprisingly). The only problem I ran into was the fact that when i was calling a function with the follwing command: "./prog city_manager --role inspector --user bob --filter downtown severity:>=:2 category:==:road", it gives the error: "zsh: :2 not found", so I had to use it with "./prog city_manager --role inspector --user bob --filter downtown "severity:>=:2" "category:==:road"".
+    The other modifications I made were purely aethetic, deleting spaces and indenting where I tought it was neccessary and also deteling the comments.

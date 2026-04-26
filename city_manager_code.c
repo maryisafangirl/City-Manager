@@ -1,10 +1,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <dirent.h> //lucru cu directoare
+#include <dirent.h> //working with directories
 #include <time.h> //timestamp
-#include <sys/stat.h> //pt stat
-#include <unistd.h> //close si open
+#include <sys/stat.h> //for stat
+#include <unistd.h> //close & open
 #include <fcntl.h>
 
 typedef struct 
@@ -62,7 +62,7 @@ int generate_id(int fd)
     
     if (fstat(fd, &st) == -1) 
     {
-        perror("Error on fstat");
+        printf("Error on fstat!\n");
         return -1; 
     }
 
@@ -75,7 +75,7 @@ int generate_id(int fd)
  
     if (read(fd, &r, sizeof(Report)) == -1) 
     {
-        perror("Error reading last report");
+        printf("Error reading last report!\n");
         return -1;
     }
 
@@ -102,7 +102,7 @@ void write_in_log(char *log_path, char *user, char *role, char *command, time_t 
 {
     if(is_manager(role) == 0)
     {
-        perror("Only the manager has the permission to write in the log!");
+        printf("Only the manager has the permission to write in the log!\n");
         return;
     }
 
@@ -114,7 +114,7 @@ void write_in_log(char *log_path, char *user, char *role, char *command, time_t 
         int len = sprintf(log_buffer, "%s %s %s %s", user, role, command, ctime(&timestamp)); 
 
         if(write(log_fd, log_buffer, len) == -1)
-            perror("Error when writing in log file!");
+            printf("Error when writing in log file!\n");
 
         close(log_fd);
     }
@@ -143,13 +143,13 @@ void add(char *district_id, char *user, char *role)
 
     if(fd == -1)
     {
-        perror("Error opening the report file!");
+        printf("Error opening the report file!\n");
         return;
     }
 
     if (fstat(fd, &st) == -1) 
     {
-        perror("Error on fstat");
+        printf("Error on fstat!\n");
         return;
     }
 
@@ -157,7 +157,7 @@ void add(char *district_id, char *user, char *role)
 
     if(fs == -1)
     {
-        perror("Error opening the district severity level file!");
+        printf("Error opening the district severity level file!\n");
         return;
     }
 
@@ -175,12 +175,12 @@ void add(char *district_id, char *user, char *role)
     printf("Category:");
     scanf("%s", report.issue_category);
 
-    printf("Severity level(1|2|3):"); //eventuala verificare daca e 1 2 sau 3
+    printf("Severity level(1|2|3):"); 
     scanf("%d", &report.severity_level);
 
     printf("Description:");
     getchar(); 
-    scanf("%[^\n]", report.description); //citire pana la enter
+    scanf("%[^\n]", report.description); //reading until ENTER
 
     strcpy(report.name, user);
 
@@ -198,7 +198,7 @@ void add(char *district_id, char *user, char *role)
     report.report_id = id;
 
     if (write(fd, &report, sizeof(Report)) == -1) 
-        perror("Error when writing in report file!");
+        printf("Error when writing in report file!\n");
 
     close(fd);
 
@@ -238,28 +238,33 @@ void view(char *district_id, char *report_id_char, char *user, char *role)
 
     if(fd == -1)
     {
-        perror("Error opening the file!");
+        printf("Error opening the file!");
         return;
     }
 
     if (fstat(fd, &st) == -1) 
     {
-        perror("Error on fstat");
+        printf("Error on fstat!\n");
         return;
     }
 
     write_in_log(log_path, user, role, "view", time(NULL));
 
     Report r;
+    int found = 0;
 
     while(read(fd, &r, sizeof(Report)))
     {
         if(r.report_id == report_id)
         {
             list_report_structure(r);
+            found = 1;
             return;
         }
     }
+
+    if(found == 0)
+        printf("The ID provided is invalid.\n");
     
     close(fd);
 }
@@ -317,7 +322,7 @@ void print_permission(mode_t mode)
     printf("\n");
 }
 
-void list(char district_id[30], char *user, char *role) //trebuie verificat daca exista districtul inainte sau nu?
+void list(char district_id[30], char *user, char *role) 
 {
     struct stat st_dir, st_file;
     char file_path[256];
@@ -394,7 +399,7 @@ void update_threshold(char *district_id, char *value, char *user, char *role)
 
     if(is_manager(role) == 0)
     {
-        perror("You do not have permission to write in this file!");
+        printf("You do not have permission to write in this file!\n");
         return;
     }
 
@@ -411,13 +416,13 @@ void update_threshold(char *district_id, char *value, char *user, char *role)
 
     if(fd == -1)
     {
-        perror("Error opening the file!");
+        printf("Error opening the file!\n");
         return;
     }
 
     if (fstat(fd, &st_file) == -1) 
     {
-        perror("Error on fstat");
+        printf("Error on fstat!\n");
         return;
     }
 
@@ -427,7 +432,7 @@ void update_threshold(char *district_id, char *value, char *user, char *role)
     int len = sprintf(write_buff, "%s", value);
 
     if(write(fd, write_buff, len) == -1)
-        perror("Error when writing in district severity level file!");
+        printf("Error when writing in district severity level file!\n");
 
     close(fd);
 }
@@ -458,7 +463,7 @@ void remove_report(char *district_id, char *report_id_char, char *user, char *ro
 
     if(fd == -1)
     {
-        perror("Error opening the file!");
+        printf("Error opening the file!\n");
         return;
     }
 
@@ -470,7 +475,7 @@ void remove_report(char *district_id, char *report_id_char, char *user, char *ro
     
     if (fstat(fd, &st) == -1) 
     {
-        perror("Error on fstat");
+        printf("Error on fstat!\n");
         return;
     }
 
@@ -507,7 +512,7 @@ void remove_report(char *district_id, char *report_id_char, char *user, char *ro
 
         if(ftruncate(fd, st.st_size - sizeof(Report)) == -1)
         {
-            perror("Error with ftruncate!\n");
+            printf("Error with ftruncate!\n");
             close(fd);
             return;
         }
@@ -523,22 +528,17 @@ void remove_report(char *district_id, char *report_id_char, char *user, char *ro
 
 int parse_condition(const char *input, char *field, char *op, char *value) 
 {
-    // Folosim sscanf pentru a extrage datele dintr-un format fix.
-    // %[^:] inseamna "citeste absolut toate caracterele pana cand intalnesti caracterul ':'"
-    // Ultimul %s citeste restul string-ului.
-    
     if (sscanf(input, "%[^:]:%[^:]:%s", field, op, value) == 3) 
-        return 1; // Succes: am extras exact 3 elemente
+        return 1;
     
-    return 0; // Eroare: string-ul nu a respectat formatul "a:b:c"
+    return 0;
 }
 
 int match_condition(Report *r, const char *field, const char *op, const char *value) 
 {
-    // 1. Verificam pentru SEVERITY (are nevoie de conversie in INT)
     if (strcmp(field, "severity") == 0) 
     {
-        int val = atoi(value); // Transformam string-ul in numar intreg
+        int val = atoi(value); 
         
         if (strcmp(op, "==") == 0) 
             return r->severity_level == val;
@@ -558,12 +558,10 @@ int match_condition(Report *r, const char *field, const char *op, const char *va
         if (strcmp(op, ">=") == 0) 
             return r->severity_level >= val;
     }
-    
-    // 2. Verificam pentru TIMESTAMP (are nevoie de conversie in LONG)
     else if (strcmp(field, "timestamp") == 0) 
     {
-        long val = atol(value); // Transformam string-ul in long
-        
+        long val = atol(value); 
+
         if (strcmp(op, "==") == 0) 
             return r->timestamp == val;
 
@@ -582,8 +580,6 @@ int match_condition(Report *r, const char *field, const char *op, const char *va
         if (strcmp(op, ">=") == 0) 
             return r->timestamp >= val;
     }
-    
-    // 3. Verificam pentru CATEGORY (comparare de string-uri)
     else if (strcmp(field, "category") == 0)
     {
         if (strcmp(op, "==") == 0) 
@@ -592,8 +588,6 @@ int match_condition(Report *r, const char *field, const char *op, const char *va
         if (strcmp(op, "!=") == 0) 
             return strcmp(r->issue_category, value) != 0;
     }
-    
-    // 4. Verificam pentru INSPECTOR (comparare de string-uri folosind 'name')
     else if (strcmp(field, "inspector") == 0)
     {
         if (strcmp(op, "==") == 0) 
@@ -603,20 +597,11 @@ int match_condition(Report *r, const char *field, const char *op, const char *va
             return strcmp(r->name, value) != 0;
     }
 
-    // Daca ajungem aici, inseamna ca field-ul sau operatorul sunt invalide
     return 0; 
 }
 
-void filter(char *district_id, char *condition, char *user, char *role)
+void filter(char *district_id, char **condition, char *user, char *role)
 {
-    char field[256], op[256], value[256];
-
-    if(parse_condition(condition, field, op, value) == 0)
-    {
-        printf("The filter condition does not respect the format. Aborting command.\n");
-        return;
-    }
-
     struct stat st;
     char file_path[256], log_path[256];
 
@@ -629,11 +614,11 @@ void filter(char *district_id, char *condition, char *user, char *role)
         return;
     }
 
-    int fd = open(file_path, O_RDWR); 
+    int fd = open(file_path, O_RDONLY); 
 
     if(fd == -1)
     {
-        perror("Error opening the file!");
+        printf("Error opening the file!");
         return;
     }
 
@@ -645,17 +630,43 @@ void filter(char *district_id, char *condition, char *user, char *role)
     
     if (fstat(fd, &st) == -1) 
     {
-        perror("Error on fstat");
+        printf("Error on fstat");
         return;
     }
 
     Report r;
 
-
     while(read(fd, &r, sizeof(Report))) 
     {
-        if(match_condition(&r, field, op, value) == 1)
+        int matches_all = 1;
+        int i = 0;
+
+        while(condition[i] != NULL)
+        {
+            char field[256], op[256], value[256];
+
+            if(parse_condition(condition[i], field, op, value) == 1)
+            {
+                if(match_condition(&r, field, op, value) == 0)
+                {
+                    matches_all = 0;
+                    break;
+                }
+            }
+            else
+            {
+                printf("The filter condition does not respect the format. Aborting command.\n");
+                return;
+            }
+
+            i++;
+        }
+
+        if(matches_all == 1)
+        {
             list_report_structure(r);
+            printf("\n");
+        }
     }
 
     close(fd);
@@ -679,26 +690,14 @@ void which_command(char *command, char **string, char *user, char *role)
         update_threshold(string[6], string[7], user, role); 
 
     if(strcmp(command, "--filter") == 0)
-    {
-        char conditions[256];
-
-        int i = 7;
-
-        while(string[i] != NULL)
-        {
-            strcat(conditions, string[i]);
-            i++;
-        }
-
-        filter(string[6], conditions, user, role);
-    }
+        filter(string[6], &string[7], user, role);
 }
 
 int main(int argc, char **argv)
 {
     if(argc < 6) 
     {
-        printf("Eroare la numarul de argumente\n");
+        printf("Error at the number of arguments!\n");
         exit(-1);
     }
 
@@ -708,7 +707,7 @@ int main(int argc, char **argv)
 
     if(argument_validation(argv, user, role, command) == 0)
     {
-        printf("Argumentele introduse nu sunt corecte\n");
+        printf("The arguments are not correct!\n");
         exit(-2);
     }
 

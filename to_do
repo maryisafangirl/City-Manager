@@ -1,9 +1,7 @@
 -de facut ceva cu legatura intre fisiere
 -verificare sl
 -verificari extra la permisiuni de fisiere
--ar trebui sa dau trigger la ceva cu severity level?
 -id-ul, o data ce e pierdut ar trebuie sa fie adus inapoi?
 -ar trebui sa dau close la fd in generate_id?
--eroare cand dai un id random in view
 -locuri unde n-am close(fd)
 -write in log doar daca e successful?
