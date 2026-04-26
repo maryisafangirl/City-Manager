@@ -1,7 +1,0 @@
--de facut ceva cu legatura intre fisiere
--verificare sl
--verificari extra la permisiuni de fisiere
--id-ul, o data ce e pierdut ar trebuie sa fie adus inapoi?
--ar trebui sa dau close la fd in generate_id?
--locuri unde n-am close(fd)
--write in log doar daca e successful?

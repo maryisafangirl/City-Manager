@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <errno.h>
 #include <dirent.h> //working with directories
 #include <time.h> //timestamp
 #include <sys/stat.h> //for stat
@@ -24,7 +25,7 @@ typedef struct
     char description[256];
 }Report;
 
-int argument_validation(char **string, char *user_flag, char *role_flag, char *command_flag) //validarea argumentelor in linia de comanda ca structura
+int argument_validation(char **string, char *user_flag, char *role_flag, char *command_flag) 
 { 
     char role_title[100], role[100];
     strcpy(role_title, string[1]); 
@@ -98,8 +99,27 @@ int is_inspector(char *role)
     return 0;
 }
 
+int get_district_paths(char *district_id, char *file_path, char *log_path)
+{
+    struct stat st;
+    sprintf(file_path, "%s/reports.dat", district_id);
+
+    if(log_path != NULL)
+        sprintf(log_path, "%s/logged_district", district_id);
+
+    if(stat(district_id, &st) == -1) 
+    {
+        printf("District folder not found!\n");
+        return 0; 
+    }
+    
+    return 1; 
+}
+
 void write_in_log(char *log_path, char *user, char *role, char *command, time_t timestamp)
 {
+    struct stat st;
+
     if(is_manager(role) == 0)
     {
         printf("Only the manager has the permission to write in the log!\n");
@@ -110,6 +130,14 @@ void write_in_log(char *log_path, char *user, char *role, char *command, time_t 
 
     if(log_fd != -1)
     {
+        chmod(log_path, 0644); 
+
+        if(fstat(log_fd, &st) == -1)
+        {
+            close(log_fd);
+            return;
+        }
+
         char log_buffer[512];
         int len = sprintf(log_buffer, "%s %s %s %s", user, role, command, ctime(&timestamp)); 
 
@@ -120,6 +148,42 @@ void write_in_log(char *log_path, char *user, char *role, char *command, time_t 
     }
 }
 
+void check_active_links() 
+{
+    DIR *dir = opendir("."); 
+
+    if (dir == NULL) 
+    {
+        printf("Could not open directory!\n");
+        return;
+    }
+    
+    struct dirent *entry;
+    struct stat lst, st;
+
+    while ((entry = readdir(dir)) != NULL)
+    {
+        if (lstat(entry->d_name, &lst) == -1) 
+            continue;
+
+        if (S_ISLNK(lst.st_mode)) 
+        {
+            if (strncmp(entry->d_name, "active_reports-", 15) == 0) 
+            {
+                if (stat(entry->d_name, &st) == -1)
+                {
+                    printf("Warning: Dangling link detected: %s\n", entry->d_name);
+                    unlink(entry->d_name);
+                }
+                else 
+                    printf("Active link found: %s\n", entry->d_name);
+            }
+        }
+    }
+
+    closedir(dir);
+}
+
 void add(char *district_id, char *user, char *role)
 {
     struct stat st;
@@ -127,8 +191,20 @@ void add(char *district_id, char *user, char *role)
     char log_path[256];
     char severity_log_path[256];
 
+    char target[256];
+    char link_name[256];
+
+    sprintf(target, "%s/reports.dat", district_id);
+    sprintf(link_name, "active_reports-%s", district_id);
+
+    if (symlink(target, link_name) == -1) 
+    {
+        if (errno != EEXIST)
+            printf("Warning when creating the symlink: %s\n", strerror(errno));
+    }
+
     sprintf(file_path, "%s/reports.dat", district_id);
-    sprintf(log_path, "%s/logged_district", district_id);
+    sprintf(log_path, "%s/logged_district", district_id); 
     sprintf(severity_log_path, "%s/district.cfg", district_id);
 
     if(stat(district_id, &st) == 0) 
@@ -141,6 +217,9 @@ void add(char *district_id, char *user, char *role)
 
     int fd = open(file_path, O_APPEND | O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
 
+    if(fd != -1) 
+        chmod(file_path, 0664);
+
     if(fd == -1)
     {
         printf("Error opening the report file!\n");
@@ -150,14 +229,19 @@ void add(char *district_id, char *user, char *role)
     if (fstat(fd, &st) == -1) 
     {
         printf("Error on fstat!\n");
+        close(fd);
         return;
     }
 
     int fs = open(severity_log_path, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP);
 
+    if(fs != -1) 
+        chmod(severity_log_path, 0640);
+
     if(fs == -1)
     {
         printf("Error opening the district severity level file!\n");
+        close(fd);
         return;
     }
 
@@ -225,14 +309,8 @@ void view(char *district_id, char *report_id_char, char *user, char *role)
     char file_path[256];
     char log_path[256];
 
-    sprintf(file_path, "%s/reports.dat", district_id);
-    sprintf(log_path, "%s/logged_district", district_id);
-
-    if(stat(district_id, &st) == -1) 
-    {
-        printf("District folder not found\n");
+    if(!get_district_paths(district_id, file_path, log_path)) 
         return;
-    }
 
     int fd = open(file_path, O_RDONLY); 
 
@@ -245,6 +323,7 @@ void view(char *district_id, char *report_id_char, char *user, char *role)
     if (fstat(fd, &st) == -1) 
     {
         printf("Error on fstat!\n");
+        close(fd);
         return;
     }
 
@@ -259,7 +338,7 @@ void view(char *district_id, char *report_id_char, char *user, char *role)
         {
             list_report_structure(r);
             found = 1;
-            return;
+            break;
         }
     }
 
@@ -322,26 +401,14 @@ void print_permission(mode_t mode)
     printf("\n");
 }
 
-void list(char district_id[30], char *user, char *role) 
+void list(char *district_id, char *user, char *role) 
 {
-    struct stat st_dir, st_file;
+    struct stat st_file;
     char file_path[256];
     char log_path[256];
 
-    sprintf(file_path, "%s/reports.dat", district_id);
-    sprintf(log_path, "%s/logged_district", district_id);
-
-    if(stat(district_id, &st_dir) == -1) 
-    {
-        printf("District folder not found!\n");
+    if(!get_district_paths(district_id, file_path, log_path)) 
         return;
-    }
-
-    if(stat(file_path, &st_file) == -1) 
-    {
-        printf("Reports file not found!\n");
-        return;
-    }
 
     int fd = open(file_path, O_RDONLY); 
 
@@ -354,6 +421,7 @@ void list(char district_id[30], char *user, char *role)
     if (fstat(fd, &st_file) == -1) 
     {
         perror("Error on fstat");
+        close(fd);
         return;
     }
     
@@ -397,18 +465,15 @@ void update_threshold(char *district_id, char *value, char *user, char *role)
         return;
     }
 
-    if(is_manager(role) == 0)
+    if ((st_file.st_mode & 0777) != 0640)
     {
-        printf("You do not have permission to write in this file!\n");
+        printf("Diagnostic: Permission bits of district.cfg have been changed (not 640). Refusing update.\n");
         return;
     }
 
-    if(!(st_file.st_mode & S_IWUSR))
+    if(is_manager(role) == 0)
     {
-        printf("The system has not given permission for the manager to write in this file!\n");
-        printf("Current permissions for this file:");
-        print_permission(st_file.st_mode);
-
+        printf("You do not have permission to write in this file!\n");
         return;
     }
 
@@ -417,12 +482,6 @@ void update_threshold(char *district_id, char *value, char *user, char *role)
     if(fd == -1)
     {
         printf("Error opening the file!\n");
-        return;
-    }
-
-    if (fstat(fd, &st_file) == -1) 
-    {
-        printf("Error on fstat!\n");
         return;
     }
 
@@ -439,7 +498,7 @@ void update_threshold(char *district_id, char *value, char *user, char *role)
 
 void remove_report(char *district_id, char *report_id_char, char *user, char *role)
 {
-    if(is_manager(role) == 0)
+    if(is_inspector(role))
     {
         printf("Only managers can call the remove report command!");
         return;
@@ -450,14 +509,8 @@ void remove_report(char *district_id, char *report_id_char, char *user, char *ro
     struct stat st;
     char file_path[256], log_path[256];
 
-    sprintf(file_path, "%s/reports.dat", district_id);
-    sprintf(log_path, "%s/logged_district", district_id);
-
-    if(stat(district_id, &st) == -1) 
-    {
-        printf("District folder not found.\n");
+    if(!get_district_paths(district_id, file_path, log_path)) 
         return;
-    }
 
     int fd = open(file_path, O_RDWR); 
 
@@ -469,13 +522,8 @@ void remove_report(char *district_id, char *report_id_char, char *user, char *ro
 
     if (fstat(fd, &st) == -1) 
     {
-        close(fd);
-        return;
-    }
-    
-    if (fstat(fd, &st) == -1) 
-    {
         printf("Error on fstat!\n");
+        close(fd);
         return;
     }
 
@@ -518,7 +566,7 @@ void remove_report(char *district_id, char *report_id_char, char *user, char *ro
         }
 
         printf("The report has been removed.\n");
-        write_in_log(log_path, user, role, "view", time(NULL));
+        write_in_log(log_path, user, role, "remove_report", time(NULL));
     }
     else
         printf("The report could not be found.\n");
@@ -605,14 +653,8 @@ void filter(char *district_id, char **condition, char *user, char *role)
     struct stat st;
     char file_path[256], log_path[256];
 
-    sprintf(file_path, "%s/reports.dat", district_id);
-    sprintf(log_path, "%s/logged_district", district_id);
-
-    if(stat(district_id, &st) == -1) 
-    {
-        printf("District folder not found.\n");
+    if(!get_district_paths(district_id, file_path, log_path)) 
         return;
-    }
 
     int fd = open(file_path, O_RDONLY); 
 
@@ -621,20 +663,19 @@ void filter(char *district_id, char **condition, char *user, char *role)
         printf("Error opening the file!");
         return;
     }
-
-    if (fstat(fd, &st) == -1) 
-    {
-        close(fd);
-        return;
-    }
     
     if (fstat(fd, &st) == -1) 
     {
         printf("Error on fstat");
+        close(fd);
         return;
     }
 
+    write_in_log(log_path, user, role, "filter", time(NULL));
+
     Report r;
+
+    int any_matches = 0;
 
     while(read(fd, &r, sizeof(Report))) 
     {
@@ -666,9 +707,13 @@ void filter(char *district_id, char **condition, char *user, char *role)
         {
             list_report_structure(r);
             printf("\n");
+            any_matches = 1;
         }
     }
 
+    if(any_matches == 0)
+        printf("No reports matched the condtion/s.\n");
+    
     close(fd);
 }
 
@@ -695,6 +740,8 @@ void which_command(char *command, char **string, char *user, char *role)
 
 int main(int argc, char **argv)
 {
+    check_active_links();
+
     if(argc < 6) 
     {
         printf("Error at the number of arguments!\n");
