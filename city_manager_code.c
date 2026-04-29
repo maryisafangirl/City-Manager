@@ -743,9 +743,9 @@ void remove_district(char *district_id, char *user, char *role)
     else if(pid > 0)
     {
         //parent
-        int *status;
+        int status;
 
-        waitpid(pid, status, WCONTINUED);
+        waitpid(pid, &status, WCONTINUED);
 
         if(status != 0)
         {
@@ -763,10 +763,6 @@ void remove_district(char *district_id, char *user, char *role)
             return;
         }
     }
-
-    char log_path[256];
-    sprintf(log_path, "%s/logged_district", district_id);
-    write_in_log(log_path, user, role, "remove_district", time(NULL));
 }
 
 void which_command(char *command, char **string, char *user, char *role)
