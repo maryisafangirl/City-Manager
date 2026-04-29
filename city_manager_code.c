@@ -5,6 +5,8 @@
 #include <dirent.h> //working with directories
 #include <time.h> //timestamp
 #include <sys/stat.h> //for stat
+#include <sys/types.h> //for fork
+#include <sys/wait.h>
 #include <unistd.h> //close & open
 #include <fcntl.h>
 
@@ -47,7 +49,7 @@ int argument_validation(char **string, char *user_flag, char *role_flag, char *c
     if(strstr(user_title, "--user") == NULL) 
         return 0;
 
-    if(strstr(command, "--add") == NULL && strstr(command, "--list") == NULL && strstr(command, "--view") == NULL && strstr(command, "--remove_report") == NULL && strstr(command, "--update_threshold") == NULL && strstr(command, "--filter") == NULL) 
+    if(strstr(command, "--add") == NULL && strstr(command, "--list") == NULL && strstr(command, "--view") == NULL && strstr(command, "--remove_report") == NULL && strstr(command, "--update_threshold") == NULL && strstr(command, "--filter") == NULL  && strstr(command, "--remove_district") == NULL)
         return 0;
 
     strcpy(user_flag, user);
@@ -717,6 +719,56 @@ void filter(char *district_id, char **condition, char *user, char *role)
     close(fd);
 }
 
+void remove_district(char *district_id, char *user, char *role)
+{
+    if(is_manager(role) == 0)
+    {
+        printf("Only managers may remove districts!\n");
+        return;
+    }
+
+    pid_t pid = fork();
+
+    if(pid < 0)
+    {
+        printf("Error on fork!\n");
+        return;
+    }
+    else if(pid == 0)
+    {
+        //child
+        execlp("rm", "rm", "-rf", district_id, NULL);
+        exit(0);
+    }
+    else if(pid > 0)
+    {
+        //parent
+        int *status;
+
+        waitpid(pid, status, WCONTINUED);
+
+        if(status != 0)
+        {
+            printf("The child process did not end as expected!\n");
+            return;
+        }
+
+        char active_link_path[256];
+
+        sprintf(active_link_path, "active_reports-%s", district_id);
+
+        if(unlink(active_link_path) == -1)
+        {
+            printf("Error on unlinking active_reports!\n");
+            return;
+        }
+    }
+
+    char log_path[256];
+    sprintf(log_path, "%s/logged_district", district_id);
+    write_in_log(log_path, user, role, "remove_district", time(NULL));
+}
+
 void which_command(char *command, char **string, char *user, char *role)
 {
     if(strcmp(command, "--add") == 0)
@@ -736,6 +788,9 @@ void which_command(char *command, char **string, char *user, char *role)
 
     if(strcmp(command, "--filter") == 0)
         filter(string[6], &string[7], user, role);
+
+    if(strcmp(command, "--remove_district") == 0)
+        remove_district(string[6], user, role);
 }
 
 int main(int argc, char **argv)
