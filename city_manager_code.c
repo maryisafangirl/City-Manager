@@ -9,6 +9,7 @@
 #include <sys/wait.h>
 #include <unistd.h> //close & open
 #include <fcntl.h>
+#include <signal.h>
 
 typedef struct 
 {
@@ -26,6 +27,8 @@ typedef struct
     time_t timestamp;
     char description[256];
 }Report;
+
+int monitor_notification = 0;
 
 int argument_validation(char **string, char *user_flag, char *role_flag, char *command_flag) 
 { 
@@ -63,7 +66,7 @@ int generate_id(int fd)
 {
     struct stat st;
     
-    if (fstat(fd, &st) == -1) 
+    if(fstat(fd, &st) == -1) 
     {
         printf("Error on fstat!\n");
         return -1; 
@@ -76,7 +79,7 @@ int generate_id(int fd)
    
     lseek(fd, -sizeof(Report), SEEK_END);
  
-    if (read(fd, &r, sizeof(Report)) == -1) 
+    if(read(fd, &r, sizeof(Report)) == -1) 
     {
         printf("Error reading last report!\n");
         return -1;
@@ -141,7 +144,17 @@ void write_in_log(char *log_path, char *user, char *role, char *command, time_t 
         }
 
         char log_buffer[512];
-        int len = sprintf(log_buffer, "%s %s %s %s", user, role, command, ctime(&timestamp)); 
+        int len;
+
+        if(strcmp(command, "add") == 0)
+        {
+            if(monitor_notification)
+                len = sprintf(log_buffer, "%s %s %s (monitor notified) %s", user, role, command, ctime(&timestamp)); 
+            else
+                len = sprintf(log_buffer, "%s %s %s (monitor not notified) %s", user, role, command, ctime(&timestamp));
+        } 
+        else
+            len = sprintf(log_buffer, "%s %s %s %s", user, role, command, ctime(&timestamp)); 
 
         if(write(log_fd, log_buffer, len) == -1)
             printf("Error when writing in log file!\n");
@@ -165,14 +178,14 @@ void check_active_links()
 
     while ((entry = readdir(dir)) != NULL)
     {
-        if (lstat(entry->d_name, &lst) == -1) 
+        if(lstat(entry->d_name, &lst) == -1) 
             continue;
 
-        if (S_ISLNK(lst.st_mode)) 
+        if(S_ISLNK(lst.st_mode)) 
         {
-            if (strncmp(entry->d_name, "active_reports-", 15) == 0) 
+            if(strncmp(entry->d_name, "active_reports-", 15) == 0) 
             {
-                if (stat(entry->d_name, &st) == -1)
+                if(stat(entry->d_name, &st) == -1)
                 {
                     printf("Warning: Dangling link detected: %s\n", entry->d_name);
                     unlink(entry->d_name);
@@ -188,6 +201,27 @@ void check_active_links()
 
 void add(char *district_id, char *user, char *role)
 {
+    int fm = open(".monitor_pid", O_RDONLY);
+
+    if(fm == -1)
+        printf("Error opening the monitoring file!\n");
+        
+    int pid = -1;
+    char buffer[32];
+
+    memset(buffer, 0, sizeof(buffer));
+
+    if (read(fm, buffer, sizeof(buffer) - 1) > 0) 
+        pid = atoi(buffer); 
+    
+    close(fm);
+
+    if(pid > 0 && kill(pid, SIGUSR1) == 0)
+        monitor_notification = 1;
+    else 
+        monitor_notification = 0;
+
+
     struct stat st;
     char file_path[256];
     char log_path[256];
@@ -199,7 +233,7 @@ void add(char *district_id, char *user, char *role)
     sprintf(target, "%s/reports.dat", district_id);
     sprintf(link_name, "active_reports-%s", district_id);
 
-    if (symlink(target, link_name) == -1) 
+    if(symlink(target, link_name) == -1) 
     {
         if (errno != EEXIST)
             printf("Warning when creating the symlink: %s\n", strerror(errno));
@@ -228,7 +262,7 @@ void add(char *district_id, char *user, char *role)
         return;
     }
 
-    if (fstat(fd, &st) == -1) 
+    if(fstat(fd, &st) == -1) 
     {
         printf("Error on fstat!\n");
         close(fd);
@@ -699,6 +733,7 @@ void filter(char *district_id, char **condition, char *user, char *role)
             else
             {
                 printf("The filter condition does not respect the format. Aborting command.\n");
+                close(fd);
                 return;
             }
 
@@ -738,6 +773,7 @@ void remove_district(char *district_id, char *user, char *role)
     {
         //child
         execlp("rm", "rm", "-rf", district_id, NULL);
+        printf("Error on execpl");
         exit(0);
     }
     else if(pid > 0)
