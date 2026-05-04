@@ -1,5 +1,7 @@
 Tool used: Gemini (Google)
 
+PHASE 1
+
 Based on the Report structure and the project specifications (fields: severity, category, inspector, timestamp, and operators: ==, !=, <, <=, >, >=), here are the two generated functions.
 
 Below is the code and the necessary explanations to present them successfully.
@@ -67,3 +69,23 @@ int match_condition(Report *r, const char *field, const char *op, const char *va
 
     The solution that Gemini produced was correct and didn't need alteration (surprisingly). The only problem I ran into was the fact that when i was calling a function with the follwing command: "./prog city_manager --role inspector --user bob --filter downtown severity:>=:2 category:==:road", it gives the error: "zsh: :2 not found", so I had to use it with "./prog city_manager --role inspector --user bob --filter downtown "severity:>=:2" "category:==:road"".
     The other modifications I made were purely aethetic, deleting spaces and indenting where I tought it was neccessary and also deteling the comments.
+
+PHASE 2
+    I promted the AI to explain in detail each field of the sigaction struct used for monitoring the reports. I have also prompted it to generate different test cases in which my program might fail or not produce the expected outcome in order to thoroughly test it.
+
+AI response:
+    Edge Cases (Boundary scenarios where the program might crash or fail)
+
+1. Using printf inside the Handler
+
+Problem: Technically speaking (at a very advanced level), the printf function is not async-signal-safe. Why? Because it uses internal lock mechanisms (memory locking) to print correctly to the screen. If a signal interrupts another printf from main(), and then the handler also calls printf, the program can enter a complete deadlock.
+
+Industry Solution: Instead of printf, handlers use write(1, "Message\n", 6); (which writes directly to the standard output at the system level). You can change that printf to a simple write().
+
+2. The program is killed by Brute Force (SIGKILL)
+
+Problem: If someone issues the command kill -9 <PID> (which sends the SIGKILL signal), the operating system kills your program instantly, as if cutting its power. The program no longer has time to "catch" the signal with sigaction, so the unlink(".monitor_pid") line will not be executed.
+
+Result: The .monitor_pid file remains on the disk (stale PID file).
+
+Solution (already implemented): The fact that you used the O_TRUNC flag in the open function solves the problem! The next time someone manually starts the monitor, it will quietly overwrite that orphaned file, respecting the "creates or overwrites" requirement.  
