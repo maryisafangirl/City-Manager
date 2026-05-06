@@ -34,7 +34,7 @@ int main(int argc, char **argv)
         exit(-1);
     }
 
-    if (fstat(fd, &st) == -1) 
+    if(fstat(fd, &st) == -1)
     {
         printf("Error on fstat!\n");
         close(fd);
@@ -68,11 +68,10 @@ int main(int argc, char **argv)
     printf("Monitor running with PID: %d. Waiting for signals...\n", pid);
 
     while(keep_running)
-    {
         pause();
-    }
 
-    printf("Monitoring stopping.\n");
+
+    printf("Monitoring stopped.\n");
 
     if(unlink(".monitor_pid") == -1)
     {

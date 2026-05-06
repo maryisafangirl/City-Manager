@@ -167,7 +167,7 @@ void check_active_links()
 {
     DIR *dir = opendir("."); 
 
-    if (dir == NULL) 
+    if(dir == NULL)
     {
         printf("Could not open directory!\n");
         return;
@@ -176,7 +176,7 @@ void check_active_links()
     struct dirent *entry;
     struct stat lst, st;
 
-    while ((entry = readdir(dir)) != NULL)
+    while((entry = readdir(dir)) != NULL)
     {
         if(lstat(entry->d_name, &lst) == -1) 
             continue;
@@ -187,11 +187,9 @@ void check_active_links()
             {
                 if(stat(entry->d_name, &st) == -1)
                 {
-                    printf("Warning: Dangling link detected: %s\n", entry->d_name);
+                    printf("Warning, dangling link detected: %s\n", entry->d_name);
                     unlink(entry->d_name);
                 }
-                else 
-                    printf("Active link found: %s\n", entry->d_name);
             }
         }
     }
@@ -211,8 +209,8 @@ void add(char *district_id, char *user, char *role)
 
     memset(buffer, 0, sizeof(buffer));
 
-    if (read(fm, buffer, sizeof(buffer) - 1) > 0) 
-        pid = atoi(buffer); 
+    if(read(fm, buffer, sizeof(buffer) - 1) > 0)
+        pid = atoi(buffer);
     
     close(fm);
 
@@ -220,7 +218,6 @@ void add(char *district_id, char *user, char *role)
         monitor_notification = 1;
     else 
         monitor_notification = 0;
-
 
     struct stat st;
     char file_path[256];
@@ -246,7 +243,7 @@ void add(char *district_id, char *user, char *role)
     if(stat(district_id, &st) == 0) 
     {
         if(S_ISDIR(st.st_mode))
-            printf("District folder found\n");
+            printf("District folder found.\n");
     }
     else
         mkdir(district_id, 0750);
@@ -317,12 +314,14 @@ void add(char *district_id, char *user, char *role)
 
     report.report_id = id;
 
-    if (write(fd, &report, sizeof(Report)) == -1) 
+    if(write(fd, &report, sizeof(Report)) == -1)
         printf("Error when writing in report file!\n");
 
     close(fd);
 
     write_in_log(log_path, user, role, "add", time(NULL));
+
+    printf("The report has been added with the id: %d.\n", id);
 }
 
 void list_report_structure(Report r)
@@ -339,6 +338,12 @@ void list_report_structure(Report r)
 
 void view(char *district_id, char *report_id_char, char *user, char *role)
 {
+    if(report_id_char == NULL)
+    {
+        printf("Not enough arguments provided!\n");
+        return;
+    }
+
     int report_id = atoi(report_id_char);
 
     struct stat st;
@@ -356,7 +361,7 @@ void view(char *district_id, char *report_id_char, char *user, char *role)
         return;
     }
 
-    if (fstat(fd, &st) == -1) 
+    if(fstat(fd, &st) == -1)
     {
         printf("Error on fstat!\n");
         close(fd);
@@ -454,7 +459,7 @@ void list(char *district_id, char *user, char *role)
         return;
     }
 
-    if (fstat(fd, &st_file) == -1) 
+    if(fstat(fd, &st_file) == -1)
     {
         perror("Error on fstat");
         close(fd);
@@ -482,6 +487,12 @@ void list(char *district_id, char *user, char *role)
 
 void update_threshold(char *district_id, char *value, char *user, char *role)
 {
+    if(value == NULL)
+    {
+        printf("Not enough arguments provided!\n");
+        return;
+    }
+
     struct stat st_dir, st_file;
     char file_path[256];
     char log_path[256];
@@ -501,7 +512,7 @@ void update_threshold(char *district_id, char *value, char *user, char *role)
         return;
     }
 
-    if ((st_file.st_mode & 0777) != 0640)
+    if((st_file.st_mode & 0777) != 0640)
     {
         printf("Diagnostic: Permission bits of district.cfg have been changed (not 640). Refusing update.\n");
         return;
@@ -528,12 +539,20 @@ void update_threshold(char *district_id, char *value, char *user, char *role)
 
     if(write(fd, write_buff, len) == -1)
         printf("Error when writing in district severity level file!\n");
+    else
+        printf("Threshold updated to: %s.\n", value);
 
     close(fd);
 }
 
 void remove_report(char *district_id, char *report_id_char, char *user, char *role)
 {
+    if(report_id_char == NULL)
+    {
+        printf("Not enough arguments provided!\n");
+        return;
+    }
+
     if(is_inspector(role))
     {
         printf("Only managers can call the remove report command!");
@@ -556,7 +575,7 @@ void remove_report(char *district_id, char *report_id_char, char *user, char *ro
         return;
     }
 
-    if (fstat(fd, &st) == -1) 
+    if(fstat(fd, &st) == -1)
     {
         printf("Error on fstat!\n");
         close(fd);
@@ -612,7 +631,7 @@ void remove_report(char *district_id, char *report_id_char, char *user, char *ro
 
 int parse_condition(const char *input, char *field, char *op, char *value) 
 {
-    if (sscanf(input, "%[^:]:%[^:]:%s", field, op, value) == 3) 
+    if(sscanf(input, "%[^:]:%[^:]:%s", field, op, value) == 3)
         return 1;
     
     return 0;
@@ -620,64 +639,64 @@ int parse_condition(const char *input, char *field, char *op, char *value)
 
 int match_condition(Report *r, const char *field, const char *op, const char *value) 
 {
-    if (strcmp(field, "severity") == 0) 
+    if(strcmp(field, "severity") == 0)
     {
         int val = atoi(value); 
         
-        if (strcmp(op, "==") == 0) 
+        if(strcmp(op, "==") == 0)
             return r->severity_level == val;
 
-        if (strcmp(op, "!=") == 0) 
+        if(strcmp(op, "!=") == 0)
             return r->severity_level != val;
 
-        if (strcmp(op, "<")  == 0) 
+        if(strcmp(op, "<")  == 0)
             return r->severity_level < val;
 
-        if (strcmp(op, "<=") == 0) 
+        if(strcmp(op, "<=") == 0)
             return r->severity_level <= val;
 
-        if (strcmp(op, ">")  == 0) 
+        if(strcmp(op, ">")  == 0)
             return r->severity_level > val;
 
-        if (strcmp(op, ">=") == 0) 
+        if(strcmp(op, ">=") == 0)
             return r->severity_level >= val;
     }
     else if (strcmp(field, "timestamp") == 0) 
     {
         long val = atol(value); 
 
-        if (strcmp(op, "==") == 0) 
+        if(strcmp(op, "==") == 0)
             return r->timestamp == val;
 
-        if (strcmp(op, "!=") == 0) 
+        if(strcmp(op, "!=") == 0)
             return r->timestamp != val;
 
-        if (strcmp(op, "<")  == 0) 
+        if(strcmp(op, "<")  == 0)
             return r->timestamp < val;
 
-        if (strcmp(op, "<=") == 0) 
+        if(strcmp(op, "<=") == 0)
             return r->timestamp <= val;
 
-        if (strcmp(op, ">")  == 0) 
+        if(strcmp(op, ">")  == 0)
             return r->timestamp > val;
 
-        if (strcmp(op, ">=") == 0) 
+        if(strcmp(op, ">=") == 0)
             return r->timestamp >= val;
     }
-    else if (strcmp(field, "category") == 0)
+    else if(strcmp(field, "category") == 0)
     {
-        if (strcmp(op, "==") == 0) 
+        if(strcmp(op, "==") == 0)
             return strcmp(r->issue_category, value) == 0;
 
-        if (strcmp(op, "!=") == 0) 
+        if(strcmp(op, "!=") == 0)
             return strcmp(r->issue_category, value) != 0;
     }
-    else if (strcmp(field, "inspector") == 0)
+    else if(strcmp(field, "inspector") == 0)
     {
-        if (strcmp(op, "==") == 0) 
+        if(strcmp(op, "==") == 0)
             return strcmp(r->name, value) == 0;
 
-        if (strcmp(op, "!=") == 0) 
+        if(strcmp(op, "!=") == 0)
             return strcmp(r->name, value) != 0;
     }
 
@@ -696,13 +715,13 @@ void filter(char *district_id, char **condition, char *user, char *role)
 
     if(fd == -1)
     {
-        printf("Error opening the file!");
+        printf("Error opening the file!\n");
         return;
     }
     
-    if (fstat(fd, &st) == -1) 
+    if(fstat(fd, &st) == -1)
     {
-        printf("Error on fstat");
+        printf("Error on fstat.\n");
         close(fd);
         return;
     }
@@ -773,7 +792,7 @@ void remove_district(char *district_id, char *user, char *role)
     {
         //child
         execlp("rm", "rm", "-rf", district_id, NULL);
-        printf("Error on execpl");
+        printf("Error on execpl!\n");
         exit(0);
     }
     else if(pid > 0)
@@ -799,6 +818,8 @@ void remove_district(char *district_id, char *user, char *role)
             return;
         }
     }
+
+    printf("The '%s' district has been removed.\n", district_id);
 }
 
 void which_command(char *command, char **string, char *user, char *role)
