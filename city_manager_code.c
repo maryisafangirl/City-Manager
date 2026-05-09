@@ -1,15 +1,15 @@
 #include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <errno.h>
+#include <string.h> //strings
+#include <stdlib.h> 
+#include <errno.h> 
 #include <dirent.h> //working with directories
 #include <time.h> //timestamp
 #include <sys/stat.h> //for stat
 #include <sys/types.h> //for fork
-#include <sys/wait.h>
+#include <sys/wait.h> //signals 
+#include <signal.h> 
 #include <unistd.h> //close & open
-#include <fcntl.h>
-#include <signal.h>
+#include <fcntl.h> //files
 
 typedef struct 
 {
@@ -22,17 +22,17 @@ typedef struct
     int report_id;
     char name[30];
     Coordonates gps_coordonates;
-    char issue_category[20];
+    char issue_category[20]; //ex. road, lighting, housing, flora, wildlife
     int severity_level; //1 = minor, 2 = moderate, 3 = critical
-    time_t timestamp;
-    char description[256];
+    time_t timestamp; //the time of the making of the report
+    char description[256]; //short description about the issue
 }Report;
 
-int monitor_notification = 0;
+int monitor_notification = 0; //for seeing whether the monitor has been notified or not
 
-int argument_validation(char **string, char *user_flag, char *role_flag, char *command_flag) 
+int argument_validation(char **string, char *user_flag, char *role_flag, char *command_flag) //checks if the arguments introduced match the specific format
 { 
-    char role_title[100], role[100];
+    char role_title[100], role[100]; 
     strcpy(role_title, string[1]); 
     strcpy(role, string[2]);     
 
@@ -62,7 +62,7 @@ int argument_validation(char **string, char *user_flag, char *role_flag, char *c
     return 1;
 }
 
-int generate_id(int fd)
+int generate_id(int fd) //generates a unique id for each report; it is the last report's last id value +1
 {
     struct stat st;
     
@@ -72,12 +72,12 @@ int generate_id(int fd)
         return -1; 
     }
 
-    if(st.st_size == 0)
+    if(st.st_size == 0) //if the size of the file is 0 then the first id is 1
         return 1;
 
     Report r;
    
-    lseek(fd, -sizeof(Report), SEEK_END);
+    lseek(fd, -sizeof(Report), SEEK_END); //we move to the last report of the file
  
     if(read(fd, &r, sizeof(Report)) == -1) 
     {
@@ -88,7 +88,7 @@ int generate_id(int fd)
     return r.report_id + 1;
 }
 
-int is_manager(char *role)
+int is_manager(char *role) //check if the current user's role is manager
 {
     if(strcmp(role, "manager") == 0)
         return 1;
@@ -96,7 +96,7 @@ int is_manager(char *role)
     return 0;
 }
 
-int is_inspector(char *role)
+int is_inspector(char *role)  //check if the current user's role is inspector
 {
     if(strcmp(role, "inspector") == 0)
         return 1;
@@ -104,7 +104,7 @@ int is_inspector(char *role)
     return 0;
 }
 
-int get_district_paths(char *district_id, char *file_path, char *log_path)
+int get_district_paths(char *district_id, char *file_path, char *log_path) //sees if it can get the district folder and writes the file paths 
 {
     struct stat st;
     sprintf(file_path, "%s/reports.dat", district_id);
@@ -121,11 +121,11 @@ int get_district_paths(char *district_id, char *file_path, char *log_path)
     return 1; 
 }
 
-void write_in_log(char *log_path, char *user, char *role, char *command, time_t timestamp)
+void write_in_log(char *log_path, char *user, char *role, char *command, time_t timestamp) //writes the data about a commnand given as a function paramater
 {
     struct stat st;
 
-    if(is_manager(role) == 0)
+    if(is_manager(role) == 0) //only the manager may write in the log
     {
         printf("Only the manager has the permission to write in the log!\n");
         return;
@@ -146,7 +146,7 @@ void write_in_log(char *log_path, char *user, char *role, char *command, time_t 
         char log_buffer[512];
         int len;
 
-        if(strcmp(command, "add") == 0)
+        if(strcmp(command, "add") == 0) //if the commnand is add we need to know wheteher the monitor waas notified or not
         {
             if(monitor_notification)
                 len = sprintf(log_buffer, "%s %s %s (monitor notified) %s", user, role, command, ctime(&timestamp)); 
@@ -163,7 +163,7 @@ void write_in_log(char *log_path, char *user, char *role, char *command, time_t 
     }
 }
 
-void check_active_links() 
+void check_active_links() //chekcs the active link and deletes it if there is an error so it's not dangling
 {
     DIR *dir = opendir("."); 
 

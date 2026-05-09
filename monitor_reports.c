@@ -54,7 +54,7 @@ int main(int argc, char **argv)
 
     //Ctrl+C
     struct sigaction sa_int;
-    sa_int.sa_handler = handler; 
+    sa_int.sa_handler = handler;   
     sigemptyset(&sa_int.sa_mask);   
     sa_int.sa_flags = 0;              
     sigaction(SIGINT, &sa_int, NULL);  
