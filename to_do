@@ -1,0 +1,126 @@
+Pasul 1: Modificarea programului monitor_reports
+Adaugă logica de verificare la startup: La începutul funcției main, înainte de a crea fișierul .monitor_pid, încearcă să-l deschizi cu O_RDONLY.
+
+Dacă fișierul există: Înseamnă că alt monitor rulează.
+
+Citește PID-ul monitorului existent.
+
+Printează un mesaj de eroare standardizat (ex: ERR:Monitor already running with PID X).
+
+Ieși din program (exit(1)).
+
+Schimbă formatul mesajelor: Deoarece hub_mon va citi aceste mesaje printr-un pipe și ele au lungime variabilă, trebuie să le structurezi clar. De exemplu, poți scrie mesaje sub forma [INFO] A new report... sau [STOP] Monitor stopping.
+
+Pasul 2: Crearea programului extern scorer
+Creează un fișier C nou (ex: scorer.c) care va fi compilat ca executabil separat.
+
+Programul va primi numele districtului ca argument în linia de comandă (argv[1]).
+
+Deschide fișierul binar reports.dat din acel district.
+
+Citește rapoartele rând pe rând și folosește un array de structuri sau o listă pentru a aduna severity_level pentru fiecare inspector (Nume).
+
+Printează pe ecran (standard output) un sumar plain-text (ex: Alice: 5 \n Bob: 2 \n). Această ieșire va ajunge automat în pipe mai târziu.
+
+Pasul 3: Crearea structurii de bază pentru city_hub
+Creează un fișier C nou (city_hub.c).
+
+Implementează o buclă interactivă (while(1)) care afișează un prompt (ex: hub> ) și citește comenzi de la tastatură cu fgets sau scanf.
+
+Folosește strtok pentru a sparge comanda introdusă în bucăți (comanda principală și argumentele).
+
+Pasul 4: Implementarea comenzii start_monitor (în city_hub)
+Execută un fork() pentru a crea procesul copil hub_mon.
+
+În procesul Părinte (city_hub): NU face wait(). Părintele trebuie să se întoarcă imediat la afișarea promptului hub>  pentru a primi alte comenzi.
+
+În procesul Copil (hub_mon):
+
+Creează un pipe.
+
+Mai execută un fork() pentru a lansa efectiv monitorul.
+
+În Nepot (monitorul efectiv): Folosește dup2() pentru a redirecționa ieșirea standard (stdout) către capătul de scriere al pipe-ului, închide capetele nefolosite, și dă execlp către ./monitor_reports.
+
+În Copil (hub_mon): Închide capătul de scriere al pipe-ului, citește într-o buclă while din capătul de citire al pipe-ului și afișează mesajele pe ecran. Dacă funcția de citire (read) returnează 0, înseamnă că monitorul a murit/s-a închis. Afișează un mesaj specific și ieși.
+
+Pasul 5: Implementarea comenzii calculate_scores (în city_hub)
+Identifică lista de districte oferite ca argumente (ex: downtown, nord).
+
+Pentru fiecare district din listă:
+
+Creează un pipe nou.
+
+Execută un fork().
+
+În copil: Folosește dup2 pentru a muta stdout în pipe, și rulează cu execlp programul ./scorer <nume_district>.
+
+În părinte (city_hub): Închide capătul de scriere. Citește din pipe tot textul pe care îl generează acel scorer și stochează-l într-un buffer. Folosește waitpid() pentru a te asigura că scorer-ul s-a terminat.
+
+După ce s-au terminat toți scorerii pentru toate districtele, afișează raportul combinat pe ecran.
+
+Funcțiile Esențiale și Parametrii Lor
+Acestea sunt funcțiile cheie noi pe care trebuie să le stăpânești pentru Phase 3.
+
+1. Crearea conductei: pipe()
+C
+int pipe(int pipefd[2]);
+Ce face: Creează un canal de comunicare unidirecțional în memorie.
+
+Parametri: pipefd este un array de doi întregi (int fd[2];). Funcția îl va umple cu doi file descriptori:
+
+pipefd[0] este capătul de CITIRE (Read end).
+
+pipefd[1] este capătul de SCRIERE (Write end).
+
+Returnează: 0 pentru succes, -1 la eroare.
+
+2. Redirecționarea Ieșirilor: dup2()
+C
+int dup2(int oldfd, int newfd);
+Ce face: Copiază file descriptorul oldfd peste newfd. Dacă newfd era deja deschis, îl închide mai întâi.
+
+Parametri:
+
+oldfd: Descriptorul pe care vrei să-l păstrezi/multiplici (în cazul nostru, pipefd[1], adică intrarea în țeavă).
+
+newfd: Descriptorul peste care vrei să scrii. În UNIX, STDOUT_FILENO (valoare 1) reprezintă ieșirea pe ecran (acolo unde scrie printf).
+
+Exemplu de utilizare: dup2(pipefd[1], STDOUT_FILENO); — din acest moment, orice printf() nu va mai apărea pe ecran, ci se va duce direct în interiorul pipe-ului!
+
+3. Crearea de procese: fork()
+C
+pid_t fork(void);
+Ce face: Clonează programul curent. Se creează un proces complet nou (Copil) care rulează exact din același punct.
+
+Returnează: * 0 pentru procesul nou creat (Copilul).
+
+PID-ul copilului (un număr > 0) pentru procesul original (Părintele).
+
+-1 dacă crearea a eșuat.
+
+4. Lansarea altor programe: Familia exec (ex: execlp)
+C
+int execlp(const char *file, const char *arg, ... /* (char  *) NULL */);
+Ce face: Înlocuiește complet codul procesului curent cu executabilul specificat.
+
+Parametri:
+
+file: Numele sau calea executabilului (ex: "./scorer").
+
+arg: Numele programului (prin convenție, se scrie același lucru ca la file).
+
+...: Următoarele argumente (argv[1], argv[2] etc.).
+
+Ultimul argument TREBUIE OBLIGATORIU să fie NULL pentru a-i spune funcției că s-au terminat argumentele.
+
+Exemplu: execlp("./scorer", "./scorer", "downtown", NULL);
+
+5. Citirea / Scrierea pe pipe: read() și write()
+C
+ssize_t read(int fd, void *buf, size_t count);
+Se folosesc exact ca la citirea/scrierea dintr-un fișier.
+
+Vei face read(pipefd[0], buffer, sizeof(buffer)); pentru a prelua ce a scris copilul.
+
+Foarte important: read-ul pe un pipe este blocant. Dacă pipe-ul este gol, programul stă și așteaptă. Când ultimul capăt de scriere (pipefd[1]) de pe întregul sistem este închis (close()), funcția read va returna 0 (ceea ce înseamnă End of File / gata transmisiunea).
