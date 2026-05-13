@@ -5,7 +5,6 @@
 #include <fcntl.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <errno.h>
 
 volatile sig_atomic_t keep_running = 1;
 
@@ -23,30 +22,6 @@ void handler(int sig)
 
 int main(int argc, char **argv)
 {
-    open(".monitor_pid", O_EXCL | O_CREAT);
-
-    if(errno == EEXIST)
-    {
-        int fd = open(".monitor_pid", O_RDONLY);
-
-        if(fd == -1)
-        {
-            printf("Error opening the report file!\n");
-            exit(-1);
-        }
-
-        int pid = -1;
-        char buffer[32];
-
-        memset(buffer, 0, sizeof(buffer));
-
-        if(read(fd, buffer, sizeof(buffer) - 1) > 0)
-            pid = atoi(buffer);
-
-        printf("Another monitor is already open and running with the pid: %d!\n", pid);
-        exit(-5);
-    }
-
     pid_t pid = getpid();
 
     struct stat st;
@@ -67,25 +42,25 @@ int main(int argc, char **argv)
     }
 
     char pid_str[20];
-    int len = sprintf(pid_str, "%d\n", pid); 
-    
+    int len = sprintf(pid_str, "%d\n", pid);
+
     if(write(fd, pid_str, len) != len)
     {
         printf("Error writing in the monitoring file!\n");
         exit(-3);
-    }      
+    }
 
     close(fd);
 
     //Ctrl+C
     struct sigaction sa_int;
-    sa_int.sa_handler = handler;   
-    sigemptyset(&sa_int.sa_mask);   
-    sa_int.sa_flags = 0;              
-    sigaction(SIGINT, &sa_int, NULL);  
+    sa_int.sa_handler = handler;
+    sigemptyset(&sa_int.sa_mask);
+    sa_int.sa_flags = 0;
+    sigaction(SIGINT, &sa_int, NULL);
 
     struct sigaction sa_usr1;
-    sa_usr1.sa_handler = handler; 
+    sa_usr1.sa_handler = handler;
     sigemptyset(&sa_usr1.sa_mask);
     sa_usr1.sa_flags = 0;
     sigaction(SIGUSR1, &sa_usr1, NULL);

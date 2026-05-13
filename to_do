@@ -1,14 +1,3 @@
-Pasul 1: Modificarea programului monitor_reports
-Adaugă logica de verificare la startup: La începutul funcției main, înainte de a crea fișierul .monitor_pid, încearcă să-l deschizi cu O_RDONLY.
-
-Dacă fișierul există: Înseamnă că alt monitor rulează.
-
-Citește PID-ul monitorului existent.
-
-Printează un mesaj de eroare standardizat (ex: ERR:Monitor already running with PID X).
-
-Ieși din program (exit(1)).
-
 Schimbă formatul mesajelor: Deoarece hub_mon va citi aceste mesaje printr-un pipe și ele au lungime variabilă, trebuie să le structurezi clar. De exemplu, poți scrie mesaje sub forma [INFO] A new report... sau [STOP] Monitor stopping.
 
 Pasul 2: Crearea programului extern scorer
