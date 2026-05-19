@@ -1,115 +1,117 @@
-Schimbă formatul mesajelor: Deoarece hub_mon va citi aceste mesaje printr-un pipe și ele au lungime variabilă, trebuie să le structurezi clar. De exemplu, poți scrie mesaje sub forma [INFO] A new report... sau [STOP] Monitor stopping.
+pasul 3: cum faci structura de baza pentru city_hub
 
-Pasul 2: Crearea programului extern scorer
-Creează un fișier C nou (ex: scorer.c) care va fi compilat ca executabil separat.
+creeaza un fisier c complet nou numit city_hub.c
 
-Programul va primi numele districtului ca argument în linia de comandă (argv[1]).
+in interiorul functiei main, deschide o bucla de tip while(1)
 
-Deschide fișierul binar reports.dat din acel district.
+aceasta bucla va asigura ca programul ruleaza continuu fara sa se opreasca
 
-Citește rapoartele rând pe rând și folosește un array de structuri sau o listă pentru a aduna severity_level pentru fiecare inspector (Nume).
+la inceputul buclei, printeaza un text care sa invite userul sa scrie o comanda
 
-Printează pe ecran (standard output) un sumar plain-text (ex: Alice: 5 \n Bob: 2 \n). Această ieșire va ajunge automat în pipe mai târziu.
+un exemplu de astfel de text poate fi "hub> "
 
-Pasul 3: Crearea structurii de bază pentru city_hub
-Creează un fișier C nou (city_hub.c).
+foloseste functia fgets pentru a citi ce scrie userul in terminal
 
-Implementează o buclă interactivă (while(1)) care afișează un prompt (ex: hub> ) și citește comenzi de la tastatură cu fgets sau scanf.
+preia toata linia introdusa intr-un buffer de text
 
-Folosește strtok pentru a sparge comanda introdusă în bucăți (comanda principală și argumentele).
+apeleaza functia strtok pentru a sparge linia de text in bucati mai mici
 
-Pasul 4: Implementarea comenzii start_monitor (în city_hub)
-Execută un fork() pentru a crea procesul copil hub_mon.
+primul cuvant returnat de strtok este insasi comanda principala
 
-În procesul Părinte (city_hub): NU face wait(). Părintele trebuie să se întoarcă imediat la afișarea promptului hub>  pentru a primi alte comenzi.
+continua sa apelezi strtok pentru a extrage si argumentele comenzii
 
-În procesul Copil (hub_mon):
+salveaza comanda si argumentele in variabile separate
 
-Creează un pipe.
+pasul 4: cum implementezi comanda start_monitor
 
-Mai execută un fork() pentru a lansa efectiv monitorul.
+verifica daca prima bucata extrasa de strtok este "start_monitor"
 
-În Nepot (monitorul efectiv): Folosește dup2() pentru a redirecționa ieșirea standard (stdout) către capătul de scriere al pipe-ului, închide capetele nefolosite, și dă execlp către ./monitor_reports.
+apeleaza functia fork() pentru a crea un proces copil
 
-În Copil (hub_mon): Închide capătul de scriere al pipe-ului, citește într-o buclă while din capătul de citire al pipe-ului și afișează mesajele pe ecran. Dacă funcția de citire (read) returnează 0, înseamnă că monitorul a murit/s-a închis. Afișează un mesaj specific și ieși.
+procesul copil nou creat va fi denumit "hub_mon"
 
-Pasul 5: Implementarea comenzii calculate_scores (în city_hub)
-Identifică lista de districte oferite ca argumente (ex: downtown, nord).
+instructiuni pentru procesul parinte (city_hub)
 
-Pentru fiecare district din listă:
+in codul parintelui, nu apela sub nicio forma functia wait()
 
-Creează un pipe nou.
+parintele trebuie sa lase copilul sa ruleze in fundal
 
-Execută un fork().
+parintele se intoarce direct la inceputul buclei while pentru a citi o noua comanda
 
-În copil: Folosește dup2 pentru a muta stdout în pipe, și rulează cu execlp programul ./scorer <nume_district>.
+instructiuni pentru procesul copil (hub_mon)
 
-În părinte (city_hub): Închide capătul de scriere. Citește din pipe tot textul pe care îl generează acel scorer și stochează-l într-un buffer. Folosește waitpid() pentru a te asigura că scorer-ul s-a terminat.
+in interiorul codului pentru hub_mon, apeleaza functia pipe(fd)
 
-După ce s-au terminat toți scorerii pentru toate districtele, afișează raportul combinat pe ecran.
+verifica daca pipe-ul s-a format cu succes
 
-Funcțiile Esențiale și Parametrii Lor
-Acestea sunt funcțiile cheie noi pe care trebuie să le stăpânești pentru Phase 3.
+apeleaza inca o data functia fork() din interiorul acestui copil
 
-1. Crearea conductei: pipe()
-C
-int pipe(int pipefd[2]);
-Ce face: Creează un canal de comunicare unidirecțional în memorie.
+acest nou fork va crea un proces "nepot"
 
-Parametri: pipefd este un array de doi întregi (int fd[2];). Funcția îl va umple cu doi file descriptori:
+acest proces nepot va rula executabilul monitor_reports
 
-pipefd[0] este capătul de CITIRE (Read end).
+instructiuni pentru procesul nepot
 
-pipefd[1] este capătul de SCRIERE (Write end).
+apeleaza functia dup2(fd[1], 1)
 
-Returnează: 0 pentru succes, -1 la eroare.
+asta face ca orice text printat sa se duca in teava, nu pe ecran
 
-2. Redirecționarea Ieșirilor: dup2()
-C
-int dup2(int oldfd, int newfd);
-Ce face: Copiază file descriptorul oldfd peste newfd. Dacă newfd era deja deschis, îl închide mai întâi.
+inchide capatul de citire fd[0], deoarece nepotul doar scrie
 
-Parametri:
+inchide si capatul original de scriere fd[1], pentru ca dup2 deja a facut o clona a lui
 
-oldfd: Descriptorul pe care vrei să-l păstrezi/multiplici (în cazul nostru, pipefd[1], adică intrarea în țeavă).
+apeleaza execlp pentru a lansa programul "./monitor_reports"
 
-newfd: Descriptorul peste care vrei să scrii. În UNIX, STDOUT_FILENO (valoare 1) reprezintă ieșirea pe ecran (acolo unde scrie printf).
+instructiuni pentru procesul hub_mon cand citeste din pipe
 
-Exemplu de utilizare: dup2(pipefd[1], STDOUT_FILENO); — din acest moment, orice printf() nu va mai apărea pe ecran, ci se va duce direct în interiorul pipe-ului!
+inchide capatul de scriere fd[1], pentru ca el doar citeste
 
-3. Crearea de procese: fork()
-C
-pid_t fork(void);
-Ce face: Clonează programul curent. Se creează un proces complet nou (Copil) care rulează exact din același punct.
+creeaza o bucla while in care apelezi mereu functia read
 
-Returnează: * 0 pentru procesul nou creat (Copilul).
+citeste informatiile din fd[0] intr-un buffer
 
-PID-ul copilului (un număr > 0) pentru procesul original (Părintele).
+afiseaza pe ecran textul pe care tocmai l-ai citit din teava
 
--1 dacă crearea a eșuat.
+verifica mereu ce valoare iti returneaza functia read
 
-4. Lansarea altor programe: Familia exec (ex: execlp)
-C
-int execlp(const char *file, const char *arg, ... /* (char  *) NULL */);
-Ce face: Înlocuiește complet codul procesului curent cu executabilul specificat.
+daca read iti returneaza valoarea 0, opreste bucla while
 
-Parametri:
+valoarea 0 inseamna ca programul monitor_reports s-a inchis
 
-file: Numele sau calea executabilului (ex: "./scorer").
+printeaza un mesaj pentru user care sa anunte ca monitorul a murit
 
-arg: Numele programului (prin convenție, se scrie același lucru ca la file).
+da exit la hub_mon cu o functie de tip exit(0)
 
-...: Următoarele argumente (argv[1], argv[2] etc.).
+pasul 5: cum implementezi comanda calculate_scores
 
-Ultimul argument TREBUIE OBLIGATORIU să fie NULL pentru a-i spune funcției că s-au terminat argumentele.
+extrage toate numele de districte oferite dupa comanda calculate_scores
 
-Exemplu: execlp("./scorer", "./scorer", "downtown", NULL);
+fa o bucla for sau while care sa treaca prin fiecare district in parte
 
-5. Citirea / Scrierea pe pipe: read() și write()
-C
-ssize_t read(int fd, void *buf, size_t count);
-Se folosesc exact ca la citirea/scrierea dintr-un fișier.
+pentru primul district gasit, creeaza un pipe dedicat pentru el
 
-Vei face read(pipefd[0], buffer, sizeof(buffer)); pentru a prelua ce a scris copilul.
+apeleaza functia fork() pentru a naste un proces copil nou pentru acel district
 
-Foarte important: read-ul pe un pipe este blocant. Dacă pipe-ul este gol, programul stă și așteaptă. Când ultimul capăt de scriere (pipefd[1]) de pe întregul sistem este închis (close()), funcția read va returna 0 (ceea ce înseamnă End of File / gata transmisiunea).
+in procesul copil, apeleaza dup2(fd[1], 1) pentru a lega ecranul la teava
+
+inchide capetele vechi ale pipe-ului din acest proces copil
+
+apeleaza execlp pentru a lansa programul "./scorer" cu numele districtului curent
+
+in procesul parinte (city_hub), inchide imediat capatul de scriere al pipe-ului
+
+asigura-te ca in parinte ramane deschis doar capatul de citire fd[0]
+
+foloseste functia read in parinte ca sa tragi scorurile afisate de programul scorer
+
+pune toate caracterele citite intr-un buffer de memorie
+
+dupa ce ai terminat de citit, apeleaza waitpid() pe procesul scorer
+
+astfel astepti curat ca procesul scorer sa se termine in siguranta
+
+repeta acesti pasi stricti de creari de pipe si fork pentru absolut fiecare district
+
+stocheaza informatiile citite in buffere de text diferite
+
+la finalul parcurgerii tuturor districtelor, afiseaza toate rezultatele simultan pe ecran
