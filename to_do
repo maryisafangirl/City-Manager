@@ -1,29 +1,3 @@
-pasul 3: cum faci structura de baza pentru city_hub
-
-creeaza un fisier c complet nou numit city_hub.c
-
-in interiorul functiei main, deschide o bucla de tip while(1)
-
-aceasta bucla va asigura ca programul ruleaza continuu fara sa se opreasca
-
-la inceputul buclei, printeaza un text care sa invite userul sa scrie o comanda
-
-un exemplu de astfel de text poate fi "hub> "
-
-foloseste functia fgets pentru a citi ce scrie userul in terminal
-
-preia toata linia introdusa intr-un buffer de text
-
-apeleaza functia strtok pentru a sparge linia de text in bucati mai mici
-
-primul cuvant returnat de strtok este insasi comanda principala
-
-continua sa apelezi strtok pentru a extrage si argumentele comenzii
-
-salveaza comanda si argumentele in variabile separate
-
-pasul 4: cum implementezi comanda start_monitor
-
 verifica daca prima bucata extrasa de strtok este "start_monitor"
 
 apeleaza functia fork() pentru a crea un proces copil
@@ -115,3 +89,5 @@ repeta acesti pasi stricti de creari de pipe si fork pentru absolut fiecare dist
 stocheaza informatiile citite in buffere de text diferite
 
 la finalul parcurgerii tuturor districtelor, afiseaza toate rezultatele simultan pe ecran
+
+list cu un manager care nu e in lista de reports 

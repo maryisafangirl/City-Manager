@@ -95,7 +95,6 @@ int main(int argc, char **argv)
     while(keep_running)
         pause();
 
-
     printf("Monitoring stopped.\n");
 
     if(unlink(".monitor_pid") == -1)
