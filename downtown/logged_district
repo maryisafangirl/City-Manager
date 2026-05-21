@@ -66,3 +66,9 @@ maria manager list Wed May  6 08:45:01 2026
 bob manager list Sat May  9 18:13:03 2026
 bob manager view Sat May  9 18:13:13 2026
 bob manager update_threshold Sat May  9 18:16:20 2026
+teo manager add (monitor not notified) Fri May 22 01:15:38 2026
+teo manager view Fri May 22 01:15:47 2026
+teo manager list Fri May 22 01:15:55 2026
+teo manager filter Fri May 22 01:16:22 2026
+teo manager filter Fri May 22 01:16:27 2026
+teo manager filter Fri May 22 01:17:41 2026
