@@ -24,6 +24,11 @@ int main(int argc, char **argv)
 
         char *p = strtok(buffer, " ");
 
+        if (p == NULL) 
+        {
+            continue; 
+        }
+
         if(strcmp(p, "start_monitor") == 0)
         {
             pid_t pid_hub_mon = fork();
@@ -70,16 +75,20 @@ int main(int argc, char **argv)
 
                     while((bytes_read = read(fd[0], pipe_buffer, sizeof(pipe_buffer) - 1)) > 0) 
                     {
-                        pipe_buffer[bytes_read] = '\0'; //puttint the terminator in the string
+                        pipe_buffer[bytes_read] = '\0'; //putting the terminator in the string
                         printf("[HUB_MON] has captured: %s", pipe_buffer);
                     }
 
                     printf("[HUB_MON]: The monitor has stopped.\n"); //aici apare dubios daca se termina ca mai e alt program
+                    
+                    //so that after the monitor stops, we still get the >hub so prompt the user to input something
+                    printf(">hub "); 
+                    fflush(stdout);
+
                     close(fd[0]);
-                    //continue aici?
+
                     exit(0); //hub_mon is done
                 }
-
             }
             else if(pid_hub_mon > 0)
             {
@@ -138,7 +147,7 @@ int main(int argc, char **argv)
 
                     while((bytes_read = read(fd[0], pipe_buffer, sizeof(pipe_buffer) - 1)) > 0) 
                     {
-                        pipe_buffer[bytes_read] = '\0'; //puttint the terminator in the string
+                        pipe_buffer[bytes_read] = '\0'; //putting the terminator in the string
                         printf("[HUB_MON]: %s", pipe_buffer);
                     }
 
@@ -148,6 +157,51 @@ int main(int argc, char **argv)
                     waitpid(pid_hub_mon, &status, 0);
                 }
             }
+        }
+        else if(strcmp(p, "stop_monitor") == 0)
+        {
+            // Cautam fisierul ca sa aflam PID-ul
+            int fm = open(".monitor_pid", O_RDONLY);
+            if(fm != -1) 
+            {
+                char buff[32]; 
+                memset(buff, 0, sizeof(buff));
+                
+                if(read(fm, buff, sizeof(buff) - 1) > 0) 
+                {
+                    pid_t m_pid = atoi(buff);
+                    // Trimitem semnalul de oprire (Ctrl+C fals) direct catre nepot!
+                    kill(m_pid, SIGINT); 
+                    printf("Stop signal sent to monitor.\n");
+                }
+                close(fm);
+            } 
+            else 
+            {
+                printf("No monitor is currently running.\n");
+            }
+
+            continue;
+        }
+        else if(strcmp(p, "stop_program") == 0)
+        {
+            printf("Shutting down city_hub...\n");
+            
+            // Verificam daca am uitat un monitor pornit si il oprim
+            int fm = open(".monitor_pid", O_RDONLY);
+
+            if(fm != -1) 
+            {
+                char buff[32]; 
+                memset(buff, 0, sizeof(buff));
+
+                if(read(fm, buff, sizeof(buff) - 1) > 0) 
+                    kill(atoi(buff), SIGINT); 
+                
+                close(fm);
+            }
+        
+            exit(0);
         }
         else
         {

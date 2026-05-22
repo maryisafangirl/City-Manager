@@ -18,4 +18,10 @@ stocheaza informatiile citite in buffere de text diferite
 
 la finalul parcurgerii tuturor districtelor, afiseaza toate rezultatele simultan pe ecran
 
-list cu un manager care nu e in lista de reports 
+functie de stop monitor
+
+sig kill?
+
+cand nu dai districte in calculate scores sa iti zica
+
+erori mai specifice cand nu gaseste district la scorer

@@ -23,28 +23,27 @@ void handler(int sig)
 
 int main(int argc, char **argv)
 {
-    open(".monitor_pid", O_EXCL | O_CREAT);
+    int old_pid = -1;
+    int fd_check = open(".monitor_pid", O_RDONLY);
 
-    if(errno == EEXIST)
+    if(fd_check != -1) 
     {
-        int fd = open(".monitor_pid", O_RDONLY);
-
-        if(fd == -1)
+        char buff[32];
+        memset(buff, 0, sizeof(buff));
+        
+        // Incercam sa citim
+        if(read(fd_check, buff, sizeof(buff) - 1) > 0) 
         {
-            printf("Error opening the report file!\n");
-            exit(-1);
+            old_pid = atoi(buff);
         }
 
-        int pid = -1;
-        char buffer[32];
+        close(fd_check);
 
-        memset(buffer, 0, sizeof(buffer));
-
-        if(read(fd, buffer, sizeof(buffer) - 1) > 0)
-            pid = atoi(buffer);
-
-        printf("Another monitor is already open and running with the pid: %d!\n", pid);
-        exit(-5);
+        if (old_pid > 0 && kill(old_pid, 0) == 0) 
+        {
+            printf("ERROR: Another monitor is already open and running with the pid: %d!\n", old_pid);
+            exit(1); 
+        }
     }
 
     pid_t pid = getpid();
@@ -91,6 +90,7 @@ int main(int argc, char **argv)
     sigaction(SIGUSR1, &sa_usr1, NULL);
 
     printf("Monitor running with PID: %d. Waiting for signals...\n", pid);
+    fflush(stdout); //when stopping the monitor in ciry hub, the buffer keeps the text in there until it gets full so it also shows Monitor running with pid ... and this gets rid of it
 
     while(keep_running)
         pause();

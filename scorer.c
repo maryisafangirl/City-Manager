@@ -5,6 +5,7 @@
 #include <sys/stat.h> //for stat
 #include <unistd.h> //close & open
 #include <fcntl.h> //files
+#include <time.h>
 
 typedef struct
 {
@@ -63,6 +64,14 @@ void calculate_workload_score(char *district_id, char *file_path)
     }
 
     Report r;
+
+    if(st.st_size == 0)
+    {
+        printf("District %s has no reports yet.\n", district_id);
+        close(fd);
+        return;
+    }
+    
     Inspector_score inspectors[st.st_size/sizeof(Report)]; //we assume that each report has a different inspector in order to make sure the vector is big enough
     int inspector_count = 0;
 
