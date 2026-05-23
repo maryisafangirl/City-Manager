@@ -1,13 +1,13 @@
 #include <stdio.h>
 #include <string.h> //strings
-#include <stdlib.h> 
-#include <errno.h> 
+#include <stdlib.h> //everything
+#include <errno.h> //errors
 #include <dirent.h> //working with directories
 #include <time.h> //timestamp
 #include <sys/stat.h> //for stat
 #include <sys/types.h> //for fork
 #include <sys/wait.h> //signals 
-#include <signal.h> 
+#include <signal.h> //also signals
 #include <unistd.h> //close & open
 #include <fcntl.h> //files
 

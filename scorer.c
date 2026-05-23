@@ -37,7 +37,7 @@ int argument_validation(char *district_id, char *file_path)
 
     if(stat(district_id, &st) == -1)
     {
-        printf("District folder not found!\n");
+        printf("District %s not found! ", district_id);
         return 0;
     }
 
@@ -52,7 +52,7 @@ void calculate_workload_score(char *district_id, char *file_path)
 
     if(fd == -1)
     {
-        printf("Error opening the file!");
+        printf("Error opening the reports file!\n");
         return;
     }
 

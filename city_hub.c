@@ -157,6 +157,9 @@ int main(int argc, char **argv)
                     waitpid(pid_hub_mon, &status, 0);
                 }
             }
+
+            if(district_count == 0)
+                printf("No district provided!\n");
         }
         else if(strcmp(p, "stop_monitor") == 0)
         {

@@ -54,7 +54,7 @@ int main(int argc, char **argv)
 
     if(fd == -1)
     {
-        printf("Error opening the report file!\n");
+        printf("Error creating the monitoring file!\n");
         exit(-1);
     }
 
