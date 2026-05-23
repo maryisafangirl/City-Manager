@@ -75,7 +75,7 @@ void calculate_workload_score(char *district_id, char *file_path)
     Inspector_score inspectors[st.st_size/sizeof(Report)]; //we assume that each report has a different inspector in order to make sure the vector is big enough
     int inspector_count = 0;
 
-    while(read(fd, &r, sizeof(Report)))
+    while(read(fd, &r, sizeof(Report)) == sizeof(Report)) //in case of a corrupted file, so it doens't print garbage
     {
         int already_there = 0;
 

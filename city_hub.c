@@ -20,6 +20,12 @@ int main(int argc, char **argv)
 
         fgets(buffer, sizeof(buffer), stdin); //we read the input from the standard input (keyboard)
 
+        if (feof(stdin)) //in case the user enters Ctrl+D, this protects the program from entering an infinite loop
+        {   
+            printf("\nExiting hub...\n"); 
+            exit(0); 
+        }
+
         buffer[strcspn(buffer, "\n")] = 0; //fgets also reads \n so we need to eliminate it
 
         char *p = strtok(buffer, " ");

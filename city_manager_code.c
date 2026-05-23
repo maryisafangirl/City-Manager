@@ -11,12 +11,14 @@
 #include <unistd.h> //close & open
 #include <fcntl.h> //files
 
+//struct for the tow parts of the coordonates
 typedef struct 
 {
     float longitude;
     float latitude;
 }Coordonates;
 
+//struct for a report
 typedef struct 
 {
     int report_id;
@@ -30,7 +32,9 @@ typedef struct
 
 int monitor_notification = 0; //for seeing whether the monitor has been notified or not
 
-int argument_validation(char **string, char *user_flag, char *role_flag, char *command_flag) //checks if the arguments introduced match the specific format
+//sees if the arguments are written in the correct form and order 
+//returns 1 if they are, and 0 if they're not
+int argument_validation(char **string, char *user_flag, char *role_flag, char *command_flag)
 { 
     char role_title[100], role[100]; 
     strcpy(role_title, string[1]); 
@@ -62,13 +66,15 @@ int argument_validation(char **string, char *user_flag, char *role_flag, char *c
     return 1;
 }
 
-int generate_id(int fd) //generates a unique id for each report; it is the last report's last id value +1
+//generates a unique id for each report; it is the last report's last id value +1
+int generate_id(int fd) 
 {
     struct stat st;
     
+    //fstat returns information about a file
     if(fstat(fd, &st) == -1) 
     {
-        printf("Error on fstat!\n");
+        perror("Error on fstat: ");
         return -1; 
     }
 
@@ -79,16 +85,19 @@ int generate_id(int fd) //generates a unique id for each report; it is the last 
    
     lseek(fd, -sizeof(Report), SEEK_END); //we move to the last report of the file
  
+    //we read the last report in the file
     if(read(fd, &r, sizeof(Report)) == -1) 
     {
         printf("Error reading last report!\n");
         return -1;
     }
 
+    //we set the id of the new report as the last report+1 to avoid having idential ids
     return r.report_id + 1;
 }
 
-int is_manager(char *role) //check if the current user's role is manager
+//check if the current user's role is manager
+int is_manager(char *role) 
 {
     if(strcmp(role, "manager") == 0)
         return 1;
@@ -96,7 +105,8 @@ int is_manager(char *role) //check if the current user's role is manager
     return 0;
 }
 
-int is_inspector(char *role)  //check if the current user's role is inspector
+//check if the current user's role is inspector
+int is_inspector(char *role)  
 {
     if(strcmp(role, "inspector") == 0)
         return 1;
@@ -104,7 +114,8 @@ int is_inspector(char *role)  //check if the current user's role is inspector
     return 0;
 }
 
-int get_district_paths(char *district_id, char *file_path, char *log_path) //sees if it can get the district folder and writes the file paths 
+//sees if it can get the district folder and writes the file paths 
+int get_district_paths(char *district_id, char *file_path, char *log_path) 
 {
     struct stat st;
     sprintf(file_path, "%s/reports.dat", district_id);
@@ -121,7 +132,8 @@ int get_district_paths(char *district_id, char *file_path, char *log_path) //see
     return 1; 
 }
 
-void write_in_log(char *log_path, char *user, char *role, char *command, time_t timestamp) //writes the data about a commnand given as a function paramater
+//writes the data about a commnand given as a function paramater
+void write_in_log(char *log_path, char *user, char *role, char *command, time_t timestamp) 
 {
     struct stat st;
 
@@ -131,11 +143,11 @@ void write_in_log(char *log_path, char *user, char *role, char *command, time_t 
         return;
     }
 
-    int log_fd = open(log_path, O_WRONLY | O_APPEND | O_CREAT, 0644);
+    int log_fd = open(log_path, O_WRONLY | O_APPEND | O_CREAT, 0644); //rw-r--r--
 
     if(log_fd != -1)
     {
-        chmod(log_path, 0644); 
+        chmod(log_path, 0644); //in case the file doesn't have the right permissions
 
         if(fstat(log_fd, &st) == -1)
         {
@@ -144,11 +156,11 @@ void write_in_log(char *log_path, char *user, char *role, char *command, time_t 
         }
 
         char log_buffer[512];
-        int len;
+        int len; //the size of the string we want to write in the log file
 
         if(strcmp(command, "add") == 0) //if the commnand is add we need to know wheteher the monitor waas notified or not
         {
-            if(monitor_notification)
+            if(monitor_notification) //we need to know if the monitor has been notified or not
                 len = sprintf(log_buffer, "%s %s %s (monitor notified) %s", user, role, command, ctime(&timestamp)); 
             else
                 len = sprintf(log_buffer, "%s %s %s (monitor not notified) %s", user, role, command, ctime(&timestamp));
@@ -163,7 +175,8 @@ void write_in_log(char *log_path, char *user, char *role, char *command, time_t 
     }
 }
 
-void check_active_links() //chekcs the active link and deletes it if there is an error so it's not dangling
+//checks the active link and deletes it if there is an error so that it's not dangling
+void check_active_links() 
 {
     DIR *dir = opendir("."); 
 
@@ -202,7 +215,7 @@ void add(char *district_id, char *user, char *role)
     int fm = open(".monitor_pid", O_RDONLY);
 
     if(fm == -1)
-        printf("Error opening the monitoring file!\n");
+        printf("Monitoring file not open!\n");
         
     int pid = -1;
     char buffer[32];
@@ -297,7 +310,7 @@ void add(char *district_id, char *user, char *role)
 
     printf("Description:");
     getchar(); 
-    scanf("%[^\n]", report.description); //reading until ENTER
+    scanf("%255[^\n]", report.description); //reading until ENTER
 
     strcpy(report.name, user);
 
@@ -822,27 +835,28 @@ void remove_district(char *district_id, char *user, char *role)
     printf("The '%s' district has been removed.\n", district_id);
 }
 
+//decides based on the command which function to call and what arguments to pass
 void which_command(char *command, char **string, char *user, char *role)
 {
-    if(strcmp(command, "--add") == 0)
+    if(strcmp(command, "--add") == 0) //the add function need the name of the district we add to
         add(string[6], user, role); 
 
-    if(strcmp(command, "--list") == 0)
+    if(strcmp(command, "--list") == 0) //the list function needs the name of the district we want to see the reports from
         list(string[6], user, role);
 
-    if(strcmp(command, "--view") == 0)
+    if(strcmp(command, "--view") == 0) //the view function needs the name of the district and the id of the report we want to see
         view(string[6], string[7], user, role);
 
-    if(strcmp(command, "--remove_report") == 0)
+    if(strcmp(command, "--remove_report") == 0) //the remove_report function needs the name of the district and the id of the report we want to remove
         remove_report(string[6], string[7], user, role);
 
-    if(strcmp(command, "--update_threshold") == 0)
+    if(strcmp(command, "--update_threshold") == 0) //the update_threshold function needs the name of the district and the severity level we want to put
         update_threshold(string[6], string[7], user, role); 
 
-    if(strcmp(command, "--filter") == 0)
+    if(strcmp(command, "--filter") == 0) //the filter function needs the name of the district and argv[7] which contains a string with the filter constraints that need to be parsed
         filter(string[6], &string[7], user, role);
 
-    if(strcmp(command, "--remove_district") == 0)
+    if(strcmp(command, "--remove_district") == 0) //the remove_district function needs the name of the district we want to remove
         remove_district(string[6], user, role);
 }
 
@@ -850,12 +864,14 @@ int main(int argc, char **argv)
 {
     check_active_links();
 
+    //on all the commands we have at least 6 arugments that are always there, so if there's any less then there's an error
     if(argc < 6) 
     {
         printf("Error at the number of arguments!\n");
         exit(-1);
     }
 
+    //we save the string for each of these because we need them for the commands later on
     char role[100];
     char user[100];
     char command[256];
