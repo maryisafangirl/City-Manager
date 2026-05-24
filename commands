@@ -1,0 +1,18 @@
+gcc -Wall -o prog city_manager_code.c
+gcc -Wall -o scorer scorer.c
+gcc -Wall -o monitor_reports monitor_reports.c
+gcc -Wall -o city_hub city_hub.c
+
+cat downtown/logged_district
+
+./prog --role manager --user mary --add downtown
+./prog --role manager --user mary --list downtown
+./prog --role manager --user mary --view downtown 2
+./prog --role manager --user mary --update_threshold downtown 3          
+./prog --role manager --user mary --remove_report downtown 11
+./prog --role inspector --user mary --remove_report downtown 11
+./prog --role manager --user mary --filter downtown "severity:>=:2" "category:==:road"
+
+./prog --role manager --user mary --add uptown  
+./prog --role manager --user mary --remove_district uptown
+

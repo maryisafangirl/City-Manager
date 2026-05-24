@@ -9,8 +9,11 @@
 
 int main(int argc, char **argv)
 {
+    printf("Available commands:\nstart_monitor\ncalculate_scores <districts>\nstop_monitor\nstop_program\n");
+    
     while(1)
     {
+        //we prompt the user to enter a command
         printf(">hub ");
 
         char buffer[256];
@@ -28,12 +31,11 @@ int main(int argc, char **argv)
 
         buffer[strcspn(buffer, "\n")] = 0; //fgets also reads \n so we need to eliminate it
 
+        //we separate the input based on the spaces
         char *p = strtok(buffer, " ");
 
         if (p == NULL) 
-        {
             continue; 
-        }
 
         if(strcmp(p, "start_monitor") == 0)
         {
@@ -41,6 +43,7 @@ int main(int argc, char **argv)
 
             if(pid_hub_mon < 0)
             {
+                //fail
                 printf("Error on fork!\n");
                 exit(-2);
             }
@@ -79,18 +82,14 @@ int main(int argc, char **argv)
                     char pipe_buffer[256];
                     int bytes_read;
 
+                    //we read from the pipe
                     while((bytes_read = read(fd[0], pipe_buffer, sizeof(pipe_buffer) - 1)) > 0) 
                     {
                         pipe_buffer[bytes_read] = '\0'; //putting the terminator in the string
-                        printf("[HUB_MON] has captured: %s", pipe_buffer);
+                        printf("[HUB_MON] has captured: %s>hub ", pipe_buffer); //so that after the monitor stops, we still get the >hub so prompt the user to input something
+                        fflush(stdout); //so that the message appears instantly
                     }
-
-                    printf("[HUB_MON]: The monitor has stopped.\n"); //aici apare dubios daca se termina ca mai e alt program
-                    
-                    //so that after the monitor stops, we still get the >hub so prompt the user to input something
-                    printf(">hub "); 
-                    fflush(stdout);
-
+                
                     close(fd[0]);
 
                     exit(0); //hub_mon is done
@@ -179,16 +178,13 @@ int main(int argc, char **argv)
                 if(read(fm, buff, sizeof(buff) - 1) > 0) 
                 {
                     pid_t m_pid = atoi(buff);
-                    // Trimitem semnalul de oprire (Ctrl+C fals) direct catre nepot!
-                    kill(m_pid, SIGINT); 
+                    kill(m_pid, SIGINT); //we stop the monitor
                     printf("Stop signal sent to monitor.\n");
                 }
                 close(fm);
             } 
             else 
-            {
                 printf("No monitor is currently running.\n");
-            }
 
             continue;
         }
@@ -196,20 +192,25 @@ int main(int argc, char **argv)
         {
             printf("Shutting down city_hub...\n");
             
-            // Verificam daca am uitat un monitor pornit si il oprim
+            //we check if there is a monitor on
             int fm = open(".monitor_pid", O_RDONLY);
 
+            //if it is, we kill it
             if(fm != -1) 
             {
                 char buff[32]; 
                 memset(buff, 0, sizeof(buff));
 
+                //we extract the pid and send it to the kill command
                 if(read(fm, buff, sizeof(buff) - 1) > 0) 
                     kill(atoi(buff), SIGINT); 
                 
                 close(fm);
             }
-        
+
+            //ensures child monitoring processes have written their final status to stdout before the main control loop closes entirely
+            while (wait(NULL) > 0);
+
             exit(0);
         }
         else

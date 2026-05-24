@@ -13,6 +13,7 @@ typedef struct
     float latitude;
 }Coordonates;
 
+//we copy the structure for the reports so that we can read them from the reports file in their right format
 typedef struct
 {
     int report_id;
@@ -24,12 +25,15 @@ typedef struct
     char description[256]; //short description about the issue
 }Report;
 
+
+//struct for keeping track of the score for each inspector
 typedef struct
 {
     char name[30];
     int score;
 }Inspector_score;
 
+//we validate the district_id given as an argument to the function
 int argument_validation(char *district_id, char *file_path)
 {
     struct stat st;
@@ -44,6 +48,7 @@ int argument_validation(char *district_id, char *file_path)
     return 1;
 }
 
+//we calculate the score for each name(inspector) in the reports file
 void calculate_workload_score(char *district_id, char *file_path)
 {
     struct stat st;
@@ -65,6 +70,7 @@ void calculate_workload_score(char *district_id, char *file_path)
 
     Report r;
 
+    //we check if we even have any reports 
     if(st.st_size == 0)
     {
         printf("District %s has no reports yet.\n", district_id);
@@ -73,12 +79,13 @@ void calculate_workload_score(char *district_id, char *file_path)
     }
     
     Inspector_score inspectors[st.st_size/sizeof(Report)]; //we assume that each report has a different inspector in order to make sure the vector is big enough
-    int inspector_count = 0;
+    int inspector_count = 0; //to keep track of how many inspectors we have
 
+    //we read each report from the file
     while(read(fd, &r, sizeof(Report)) == sizeof(Report)) //in case of a corrupted file, so it doens't print garbage
     {
-        int already_there = 0;
-
+        int already_there = 0;//we check is an inspector is already in the inspectors vector by going to all the ones we already have
+        
         for(int i = 0; i < inspector_count; i++)
         {
             if(strcmp(r.name, inspectors[i].name) == 0)
@@ -88,6 +95,7 @@ void calculate_workload_score(char *district_id, char *file_path)
             }
         }
 
+        //if it's not already there, we put it in the vector and we initialise their score to 0
         if(already_there == 0)
         {
             strcpy(inspectors[inspector_count].name, r.name);
@@ -95,12 +103,13 @@ void calculate_workload_score(char *district_id, char *file_path)
             inspector_count++;
         }
 
+        //if the current report matches an inspector name, we add to their score
         for(int i = 0; i < inspector_count; i++)
         {
             if(strcmp(r.name, inspectors[i].name) == 0)
             {
                 inspectors[i].score += r.severity_level;
-                break;
+                break; //each inspector appears once, so there's no need to cotinue
             }
         }
     }
@@ -115,6 +124,7 @@ void calculate_workload_score(char *district_id, char *file_path)
 
 int main(int argc, char **argv)
 {
+    //arguments: ./exec and district_id
     if(argc != 2)
     {
         printf("Error at the number of arguments!\n");
